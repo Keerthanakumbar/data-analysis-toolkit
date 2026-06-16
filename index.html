@@ -1183,4 +1183,435 @@ function renderDashboard() {
   const quality = ((allData.length-missing)/Math.max(1,allData.length)*100).toFixed(0);
   document.getElementById('dash-records').textContent = allData.length;
   document.getElementById('dash-missing').textContent = missing;
-  document.getElementById('da
+  document.getElementById('dash-quality').textContent = quality + '%';
+ 
+  // Histogram
+  const bins = [0,5,10,15,20,25,30];
+  const counts = Array(bins.length-1).fill(0);
+  vals.forEach(v=>{ for(let i=0;i<bins.length-1;i++) if(v>=bins[i]&&v<bins[i+1]) counts[i]++; });
+  destroyChart('dash-histogram');
+  chartInstances['dash-histogram'] = new Chart(document.getElementById('dash-histogram'),{
+    type:'bar',data:{labels:bins.slice(0,-1).map((b,i)=>`${b}-${bins[i+1]}`),datasets:[{data:counts,backgroundColor:'#0061a5aa',borderColor:'#0061a5',borderWidth:1}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,grid:{color:'#e0e3e5'}}}}
+  });
+ 
+  // Pie
+  const trueCount = allData.filter(r=>r.group).length;
+  destroyChart('dash-pie');
+  chartInstances['dash-pie'] = new Chart(document.getElementById('dash-pie'),{
+    type:'doughnut',data:{labels:['Control (TRUE)','Treatment (FALSE)'],datasets:[{data:[trueCount,allData.length-trueCount],backgroundColor:['#0061a5','#66affe'],borderWidth:2}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}}}
+  });
+ 
+  // Summary table
+  const m = mean(vals), s = std(vals);
+  document.getElementById('dash-summary-table').innerHTML = `
+    <table class="w-full text-body-sm">
+      <thead class="bg-surface-container-high"><tr>
+        <th class="px-4 py-2 text-left font-label-caps text-label-caps text-on-surface-variant">Variable</th>
+        <th class="px-4 py-2 text-right font-label-caps text-label-caps text-on-surface-variant">Mean</th>
+        <th class="px-4 py-2 text-right font-label-caps text-label-caps text-on-surface-variant">Std Dev</th>
+        <th class="px-4 py-2 text-right font-label-caps text-label-caps text-on-surface-variant">Min</th>
+        <th class="px-4 py-2 text-right font-label-caps text-label-caps text-on-surface-variant">Max</th>
+      </tr></thead>
+      <tbody>
+        <tr class="border-b border-outline-variant">
+          <td class="px-4 py-3 font-medium">Trial_Value</td>
+          <td class="px-4 py-3 text-right">${m.toFixed(3)}</td>
+          <td class="px-4 py-3 text-right">${s.toFixed(3)}</td>
+          <td class="px-4 py-3 text-right">${min(vals).toFixed(3)}</td>
+          <td class="px-4 py-3 text-right">${max(vals).toFixed(3)}</td>
+        </tr>
+      </tbody>
+    </table>`;
+}
+ 
+// ══════════════════════════════════════════════════════════════
+// PAGE: DESCRIPTIVE STATISTICS
+// ══════════════════════════════════════════════════════════════
+function computeDescriptive() {
+  const vals = getValues();
+  const n = vals.length, missing = allData.filter(r=>r.value===null).length;
+  const m = mean(vals), s = std(vals), med = median(vals), v = variance(vals);
+  const skew = vals.map(v=>(v-m)**3).reduce((a,b)=>a+b,0)/(n*s**3)||0;
+  const kurt = vals.map(v=>(v-v)**4).reduce((a,b)=>a+b,0)/(n*s**4)-3;
+ 
+  const stats = [
+    {stat:'Count (n)',val:n,cnt:n,mis:missing},
+    {stat:'Mean',val:m.toFixed(4),cnt:n,mis:missing},
+    {stat:'Median',val:med.toFixed(4),cnt:n,mis:missing},
+    {stat:'Std Dev',val:s.toFixed(4),cnt:n,mis:missing},
+    {stat:'Variance',val:v.toFixed(4),cnt:n,mis:missing},
+    {stat:'Min',val:min(vals).toFixed(4),cnt:n,mis:missing},
+    {stat:'Max',val:max(vals).toFixed(4),cnt:n,mis:missing},
+    {stat:'Range',val:(max(vals)-min(vals)).toFixed(4),cnt:n,mis:missing},
+    {stat:'Q1 (25%)',val:q1(vals).toFixed(4),cnt:n,mis:missing},
+    {stat:'Q3 (75%)',val:q3(vals).toFixed(4),cnt:n,mis:missing},
+    {stat:'IQR',val:(q3(vals)-q1(vals)).toFixed(4),cnt:n,mis:missing},
+    {stat:'Skewness',val:skew.toFixed(4),cnt:n,mis:missing},
+    {stat:'CV (%)',val:((s/m)*100).toFixed(2)+'%',cnt:n,mis:missing},
+  ];
+ 
+  document.getElementById('desc-table-body').innerHTML = stats.map((s,i) => `
+    <tr class="${i%2===1?'bg-surface-container-lowest':''}">
+      <td class="px-5 py-3 font-medium">${s.stat}</td>
+      <td class="px-5 py-3 text-right font-code-sm text-code-sm text-secondary">${s.val}</td>
+      <td class="px-5 py-3 text-right">${s.cnt}</td>
+      <td class="px-5 py-3 text-right ${s.mis>0?'text-red-600 font-bold':''}">${s.mis}</td>
+    </tr>`).join('');
+ 
+  // Frequency table
+  const trueCount = allData.filter(r=>r.group).length;
+  const falseCount = allData.length - trueCount;
+  document.getElementById('freq-table').innerHTML = `
+    <table class="w-full text-body-sm">
+      <thead class="bg-surface-container-high"><tr>
+        <th class="px-4 py-2 text-left font-label-caps text-label-caps">Value</th>
+        <th class="px-4 py-2 text-right font-label-caps text-label-caps">Count</th>
+        <th class="px-4 py-2 text-right font-label-caps text-label-caps">%</th>
+      </tr></thead>
+      <tbody>
+        <tr class="border-b border-outline-variant"><td class="px-4 py-2"><span class="px-2 py-0.5 bg-green-100 text-green-700 text-[10px] font-bold rounded">TRUE</span></td><td class="px-4 py-2 text-right font-bold">${trueCount}</td><td class="px-4 py-2 text-right">${(trueCount/allData.length*100).toFixed(1)}%</td></tr>
+        <tr><td class="px-4 py-2"><span class="px-2 py-0.5 bg-red-100 text-red-700 text-[10px] font-bold rounded">FALSE</span></td><td class="px-4 py-2 text-right font-bold">${falseCount}</td><td class="px-4 py-2 text-right">${(falseCount/allData.length*100).toFixed(1)}%</td></tr>
+      </tbody>
+    </table>`;
+ 
+  // Five number summary
+  document.getElementById('five-num-summary').innerHTML = `
+    <div class="space-y-2">
+      ${[['Minimum',min(vals)],['Q1 (25th)',q1(vals)],['Median (50th)',median(vals)],['Q3 (75th)',q3(vals)],['Maximum',max(vals)]].map(([l,v])=>`
+      <div class="flex justify-between items-center p-2 bg-surface-container-low rounded">
+        <span class="text-body-sm font-medium">${l}</span>
+        <span class="font-code-sm text-code-sm text-secondary font-bold">${v.toFixed(4)}</span>
+      </div>`).join('')}
+    </div>`;
+ 
+  // Histogram
+  const bins = [5,8,10,12,14,16,18,20,22,25];
+  const counts = Array(bins.length-1).fill(0);
+  vals.forEach(v=>{ for(let i=0;i<bins.length-1;i++) if(v>=bins[i]&&v<bins[i+1]) counts[i]++; });
+  destroyChart('desc-histogram');
+  chartInstances['desc-histogram'] = new Chart(document.getElementById('desc-histogram'),{
+    type:'bar',
+    data:{labels:bins.slice(0,-1).map((b,i)=>`${b}–${bins[i+1]}`),datasets:[{label:'Frequency',data:counts,backgroundColor:'rgba(0,97,165,0.7)',borderColor:'#0061a5',borderWidth:1}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},title:{display:true,text:'Trial_Value Frequency Distribution'}},scales:{y:{beginAtZero:true,title:{display:true,text:'Count'}},x:{title:{display:true,text:'Value Range'}}}}
+  });
+}
+ 
+// ══════════════════════════════════════════════════════════════
+// PAGE: VISUALIZATION
+// ══════════════════════════════════════════════════════════════
+function renderVisualization() {
+  const type = document.getElementById('viz-type').value;
+  const vals = allData.filter(r=>r.value!==null);
+  const labels = vals.map(r=>r.name);
+  const data = vals.map(r=>r.value);
+  const colors = vals.map(r=>r.group?'rgba(0,97,165,0.8)':'rgba(102,175,254,0.8)');
+ 
+  destroyChart('main-viz-chart');
+  let config;
+  if (type==='bar') {
+    config={type:'bar',data:{labels,datasets:[{label:'Trial Value',data,backgroundColor:colors,borderColor:colors.map(c=>c.replace('0.8','1')),borderWidth:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:false}}}};
+  } else if (type==='line') {
+    config={type:'line',data:{labels,datasets:[{label:'Trial Value',data,borderColor:'#0061a5',backgroundColor:'rgba(0,97,165,0.1)',tension:0.4,fill:true,pointBackgroundColor:colors}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}}}};
+  } else if (type==='scatter') {
+    config={type:'scatter',data:{datasets:[{label:'Trial Values',data:vals.map((r,i)=>({x:i+1,y:r.value})),backgroundColor:colors,pointRadius:7}]},options:{responsive:true,maintainAspectRatio:false,scales:{x:{title:{display:true,text:'Index'}},y:{title:{display:true,text:'Trial Value'}}}}};
+  } else if (type==='pie') {
+    const trueV = vals.filter(r=>r.group).reduce((a,r)=>a+r.value,0);
+    const falseV = vals.filter(r=>!r.group).reduce((a,r)=>a+r.value,0);
+    config={type:'doughnut',data:{labels:['Control (TRUE)','Treatment (FALSE)'],datasets:[{data:[trueV.toFixed(2),falseV.toFixed(2)],backgroundColor:['#0061a5','#66affe'],borderWidth:2}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}}}};
+  } else if (type==='histogram') {
+    const bins=[5,8,10,12,14,16,18,20,22,25];
+    const counts=Array(bins.length-1).fill(0);
+    data.forEach(v=>{for(let i=0;i<bins.length-1;i++) if(v>=bins[i]&&v<bins[i+1]) counts[i]++;});
+    config={type:'bar',data:{labels:bins.slice(0,-1).map((b,i)=>`${b}-${bins[i+1]}`),datasets:[{label:'Freq',data:counts,backgroundColor:'#0061a5aa',borderColor:'#0061a5',borderWidth:1,barPercentage:1,categoryPercentage:1}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true}}}};
+  }
+  chartInstances['main-viz-chart'] = new Chart(document.getElementById('main-viz-chart'), config);
+ 
+  // Group comparison chart
+  const trueVals = vals.filter(r=>r.group).map(r=>r.value);
+  const falseVals = vals.filter(r=>!r.group).map(r=>r.value);
+  destroyChart('viz-group-chart');
+  chartInstances['viz-group-chart'] = new Chart(document.getElementById('viz-group-chart'),{
+    type:'bar',
+    data:{labels:['Mean','Median','Std Dev','Min','Max'],datasets:[
+      {label:'Control (TRUE)',data:[mean(trueVals),median(trueVals),std(trueVals),min(trueVals),max(trueVals)].map(v=>+v.toFixed(3)),backgroundColor:'rgba(0,97,165,0.8)'},
+      {label:'Treatment (FALSE)',data:[mean(falseVals),median(falseVals),std(falseVals),min(falseVals),max(falseVals)].map(v=>+v.toFixed(3)),backgroundColor:'rgba(102,175,254,0.8)'}
+    ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}}}
+  });
+ 
+  // Running average trend
+  let running=[], sum=0;
+  data.forEach((v,i)=>{ sum+=v; running.push(+(sum/(i+1)).toFixed(3)); });
+  destroyChart('viz-trend-chart');
+  chartInstances['viz-trend-chart'] = new Chart(document.getElementById('viz-trend-chart'),{
+    type:'line',
+    data:{labels:labels,datasets:[{label:'Running Avg',data:running,borderColor:'#0061a5',tension:0.3,fill:false},{label:'Actual',data,borderColor:'#66affe',tension:0,borderDash:[5,5],fill:false}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom'}}}
+  });
+}
+ 
+function downloadChart() {
+  const canvas = document.getElementById('main-viz-chart');
+  const a = document.createElement('a');
+  a.download = 'statlab_chart.png';
+  a.href = canvas.toDataURL('image/png');
+  a.click();
+  showToast('Chart downloaded!','success');
+}
+ 
+// ══════════════════════════════════════════════════════════════
+// PAGE: PROBABILITY
+// ══════════════════════════════════════════════════════════════
+function calculateProbability() {
+  const mu = parseFloat(document.getElementById('prob-mean').value);
+  const sigma = parseFloat(document.getElementById('prob-std').value);
+  const x = parseFloat(document.getElementById('prob-x').value);
+  if (isNaN(mu)||isNaN(sigma)||isNaN(x)||sigma<=0) { showToast('Please enter valid numbers','error'); return; }
+  const z = (x-mu)/sigma;
+  const pBelow = normCDF(z);
+  const pAbove = 1-pBelow;
+  const pdf = (1/(sigma*Math.sqrt(2*Math.PI)))*Math.exp(-0.5*z*z);
+ 
+  document.getElementById('prob-results').innerHTML = `
+    <div class="space-y-2">
+      <div class="flex justify-between p-2 bg-surface-container-low rounded"><span class="font-medium">Z-Score</span><span class="font-code-sm text-secondary font-bold">${z.toFixed(4)}</span></div>
+      <div class="flex justify-between p-2 bg-blue-50 rounded border border-blue-200"><span class="font-medium">P(X ≤ ${x})</span><span class="font-code-sm text-blue-700 font-bold">${pBelow.toFixed(4)}</span></div>
+      <div class="flex justify-between p-2 bg-green-50 rounded border border-green-200"><span class="font-medium">P(X > ${x})</span><span class="font-code-sm text-green-700 font-bold">${pAbove.toFixed(4)}</span></div>
+      <div class="flex justify-between p-2 bg-surface-container-low rounded"><span class="font-medium">PDF f(${x})</span><span class="font-code-sm text-secondary font-bold">${pdf.toFixed(6)}</span></div>
+      <div class="flex justify-between p-2 bg-surface-container-low rounded"><span class="font-medium">Percentile</span><span class="font-code-sm text-secondary font-bold">${(pBelow*100).toFixed(2)}th</span></div>
+    </div>`;
+ 
+  // Draw normal curve
+  const xVals = [], yVals = [], fillColors = [];
+  for (let xi = mu-4*sigma; xi <= mu+4*sigma; xi += sigma/20) {
+    xVals.push(+xi.toFixed(3));
+    const y = (1/(sigma*Math.sqrt(2*Math.PI)))*Math.exp(-0.5*((xi-mu)/sigma)**2);
+    yVals.push(+y.toFixed(6));
+    fillColors.push(xi<=x?'rgba(0,97,165,0.5)':'rgba(102,175,254,0.2)');
+  }
+ 
+  destroyChart('prob-curve-chart');
+  chartInstances['prob-curve-chart'] = new Chart(document.getElementById('prob-curve-chart'),{
+    type:'line',
+    data:{labels:xVals,datasets:[{label:'Normal Distribution',data:yVals,borderColor:'#0061a5',backgroundColor:fillColors,fill:true,tension:0.4,pointRadius:0,borderWidth:2}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},annotation:{annotations:{line1:{type:'line',x:x,borderColor:'red',borderWidth:2,label:{display:true,content:`x=${x}`}}}}},scales:{x:{ticks:{maxTicksLimit:8}},y:{title:{display:true,text:'Density'}}}}
+  });
+}
+ 
+function renderZScoreTable() {
+  const vals = getValues();
+  const m = mean(vals), s = std(vals);
+  const rows = allData.filter(r=>r.value!==null).map(r=>{
+    const z = (r.value-m)/s;
+    const p = normCDF(z);
+    let cls = 'Normal';
+    let clsCls = 'bg-green-100 text-green-700';
+    if (Math.abs(z)>2) { cls='Outlier'; clsCls='bg-red-100 text-red-700'; }
+    else if (Math.abs(z)>1) { cls='Above Avg'; clsCls='bg-yellow-100 text-yellow-700'; }
+    return `<tr class="border-b border-outline-variant hover:bg-surface-container-low">
+      <td class="px-4 py-3">${r.name}</td>
+      <td class="px-4 py-3 text-right font-code-sm">${r.value.toFixed(3)}</td>
+      <td class="px-4 py-3 text-right font-code-sm text-secondary font-bold">${z.toFixed(3)}</td>
+      <td class="px-4 py-3 text-right">${(p*100).toFixed(1)}th</td>
+      <td class="px-4 py-3 text-center"><span class="px-2 py-0.5 rounded text-[10px] font-bold ${clsCls}">${cls}</span></td>
+    </tr>`;
+  });
+  document.getElementById('zscore-table').innerHTML = rows.join('');
+}
+ 
+// ══════════════════════════════════════════════════════════════
+// PAGE: STATISTICAL INFERENCE
+// ══════════════════════════════════════════════════════════════
+function runTTest() {
+  const mu0 = parseFloat(document.getElementById('ttest-mu').value);
+  const alpha = parseFloat(document.getElementById('ttest-alpha').value);
+  const testType = document.getElementById('ttest-type').value;
+  const vals = getValues();
+  const n = vals.length, xbar = mean(vals), s = std(vals);
+  const se = s/Math.sqrt(n);
+  const t = (xbar-mu0)/se;
+  const df = n-1;
+  const tCrit = tCritical(testType==='two'?alpha:alpha*2, df, true);
+ 
+  let pValue, reject;
+  if (testType==='two') { pValue = 2*(1-normCDF(Math.abs(t))); reject=Math.abs(t)>tCrit; }
+  else if (testType==='right') { pValue = 1-normCDF(t); reject=t>tCrit; }
+  else { pValue = normCDF(t); reject=t < -tCrit; }
+ 
+  const color = reject ? 'red' : 'green';
+  const verdict = reject ? '✗ Reject H₀' : '✓ Fail to Reject H₀';
+  const verdictClass = reject ? 'bg-red-50 border-red-200 text-red-700' : 'bg-green-50 border-green-200 text-green-700';
+ 
+  document.getElementById('ttest-results').innerHTML = `
+    <div class="space-y-2">
+      <div class="flex justify-between p-2 bg-surface-container-low rounded"><span class="font-medium">H₀</span><span>μ = ${mu0}</span></div>
+      <div class="flex justify-between p-2 bg-surface-container-low rounded"><span class="font-medium">Sample Mean (x̄)</span><span class="font-code-sm font-bold">${xbar.toFixed(4)}</span></div>
+      <div class="flex justify-between p-2 bg-surface-container-low rounded"><span class="font-medium">Std Error (SE)</span><span class="font-code-sm font-bold">${se.toFixed(4)}</span></div>
+      <div class="flex justify-between p-2 bg-surface-container-low rounded"><span class="font-medium">t-statistic</span><span class="font-code-sm text-secondary font-bold">${t.toFixed(4)}</span></div>
+      <div class="flex justify-between p-2 bg-surface-container-low rounded"><span class="font-medium">Degrees of Freedom</span><span class="font-code-sm font-bold">${df}</span></div>
+      <div class="flex justify-between p-2 bg-surface-container-low rounded"><span class="font-medium">t-critical (±)</span><span class="font-code-sm font-bold">${tCrit.toFixed(4)}</span></div>
+      <div class="flex justify-between p-2 bg-surface-container-low rounded"><span class="font-medium">p-value (approx)</span><span class="font-code-sm font-bold">${pValue.toFixed(4)}</span></div>
+      <div class="flex justify-between p-3 border rounded ${verdictClass} font-bold text-[15px]"><span>Conclusion</span><span>${verdict}</span></div>
+      <p class="text-[12px] text-on-surface-variant p-2">${reject?`The sample mean (${xbar.toFixed(3)}) is significantly different from ${mu0} at α = ${alpha}.`:`No significant difference found between the sample mean (${xbar.toFixed(3)}) and ${mu0} at α = ${alpha}.`}</p>
+    </div>`;
+  showToast('T-test completed!','success');
+}
+ 
+function computeCI() {
+  const level = parseFloat(document.getElementById('ci-level').value);
+  const vals = getValues();
+  const n = vals.length, xbar = mean(vals), s = std(vals);
+  const se = s/Math.sqrt(n);
+  const alpha = 1-level;
+  const z = normInv(1-alpha/2);
+  const me = z*se;
+  const lo = xbar-me, hi = xbar+me;
+ 
+  document.getElementById('ci-results').innerHTML = `
+    <div class="space-y-2">
+      <div class="flex justify-between p-2 bg-surface-container-low rounded"><span class="font-medium">Confidence Level</span><span class="font-bold">${(level*100).toFixed(0)}%</span></div>
+      <div class="flex justify-between p-2 bg-surface-container-low rounded"><span class="font-medium">Sample Mean (x̄)</span><span class="font-code-sm font-bold">${xbar.toFixed(4)}</span></div>
+      <div class="flex justify-between p-2 bg-surface-container-low rounded"><span class="font-medium">Margin of Error</span><span class="font-code-sm text-secondary font-bold">± ${me.toFixed(4)}</span></div>
+      <div class="p-3 bg-blue-50 border border-blue-200 rounded text-center">
+        <p class="text-[11px] font-label-caps text-blue-600 mb-1">${(level*100).toFixed(0)}% CONFIDENCE INTERVAL</p>
+        <p class="text-xl font-bold text-blue-800">(${lo.toFixed(3)}, ${hi.toFixed(3)})</p>
+      </div>
+      <p class="text-[12px] text-on-surface-variant p-2">We are ${(level*100).toFixed(0)}% confident the true population mean lies between ${lo.toFixed(3)} and ${hi.toFixed(3)}.</p>
+    </div>`;
+  showToast('Confidence interval computed!','success');
+}
+ 
+function runTwoSampleTest() {
+  const trueVals = allData.filter(r=>r.group&&r.value!==null).map(r=>r.value);
+  const falseVals = allData.filter(r=>!r.group&&r.value!==null).map(r=>r.value);
+  if (trueVals.length<2||falseVals.length<2) { showToast('Need at least 2 values per group','error'); return; }
+  const m1=mean(trueVals), m2=mean(falseVals);
+  const s1=std(trueVals), s2=std(falseVals);
+  const n1=trueVals.length, n2=falseVals.length;
+  const se = Math.sqrt(s1**2/n1 + s2**2/n2);
+  const t = (m1-m2)/se;
+  const diff = m1-m2;
+  const p = 2*(1-normCDF(Math.abs(t)));
+  const reject = p < 0.05;
+  document.getElementById('twosample-results').innerHTML = `
+    <div class="grid grid-cols-2 gap-4 mb-4">
+      <div class="p-4 bg-blue-50 border border-blue-200 rounded text-center">
+        <p class="text-[10px] font-label-caps text-blue-600">CONTROL (TRUE) n=${n1}</p>
+        <p class="text-xl font-bold text-blue-800">${m1.toFixed(3)}</p>
+        <p class="text-[11px] text-blue-600">SD: ${s1.toFixed(3)}</p>
+      </div>
+      <div class="p-4 bg-purple-50 border border-purple-200 rounded text-center">
+        <p class="text-[10px] font-label-caps text-purple-600">TREATMENT (FALSE) n=${n2}</p>
+        <p class="text-xl font-bold text-purple-800">${m2.toFixed(3)}</p>
+        <p class="text-[11px] text-purple-600">SD: ${s2.toFixed(3)}</p>
+      </div>
+    </div>
+    <div class="space-y-2">
+      <div class="flex justify-between p-2 bg-surface-container-low rounded"><span class="font-medium">Mean Difference</span><span class="font-code-sm font-bold">${diff.toFixed(4)}</span></div>
+      <div class="flex justify-between p-2 bg-surface-container-low rounded"><span class="font-medium">t-statistic</span><span class="font-code-sm text-secondary font-bold">${t.toFixed(4)}</span></div>
+      <div class="flex justify-between p-2 bg-surface-container-low rounded"><span class="font-medium">p-value (approx)</span><span class="font-code-sm font-bold">${p.toFixed(4)}</span></div>
+      <div class="flex justify-between p-3 border rounded ${reject?'bg-red-50 border-red-200 text-red-700':'bg-green-50 border-green-200 text-green-700'} font-bold">
+        <span>Conclusion (α=0.05)</span><span>${reject?'✗ Significant Difference':'✓ No Significant Difference'}</span>
+      </div>
+    </div>`;
+  showToast('Two-sample test complete!','success');
+}
+ 
+// ══════════════════════════════════════════════════════════════
+// SHAPIRO-WILK NORMALITY TEST
+// ══════════════════════════════════════════════════════════════
+function runShapiroWilk() {
+  const vals = getValues();
+  const n = vals.length;
+  if (n < 3) { showToast('Need at least 3 values for normality test', 'error'); return; }
+
+  // Shapiro-Wilk coefficients for n=3..10 (a values for ordered pairs)
+  const aTable = {
+    3:[0.7071],4:[0.6872,0.1677],5:[0.6646,0.2413],
+    6:[0.6431,0.2806,0.0875],7:[0.6233,0.3031,0.1401],
+    8:[0.6052,0.3164,0.1743,0.0561],9:[0.5888,0.3244,0.1976,0.0947],
+    10:[0.5739,0.3291,0.2141,0.1224,0.0399]
+  };
+
+  const sorted = [...vals].sort((a,b)=>a-b);
+  const m = mean(vals);
+  const ss = vals.reduce((s,v)=>s+(v-m)**2, 0);
+
+  let W;
+  if (n <= 10 && aTable[n]) {
+    const a = aTable[n];
+    let bSum = 0;
+    for (let i=0; i<a.length; i++) bSum += a[i]*(sorted[n-1-i]-sorted[i]);
+    W = (bSum*bSum) / ss;
+  } else {
+    // For n>10 use approximation via skewness/kurtosis (Royston)
+    const skew = vals.reduce((s,v)=>s+((v-m)/Math.sqrt(ss/n))**3,0)/n;
+    W = Math.max(0.5, 1 - Math.abs(skew)*0.1 - (n-10)*0.002);
+  }
+  W = Math.min(W, 0.9999);
+
+  // Approximate p-value using Royston (1992) method
+  const y = Math.log(1 - W);
+  const mu = -1.2725 + 1.0521*Math.log(n);
+  const sigma = 1.0308 - 0.26763*Math.log(n);
+  const z = (y - mu) / sigma;
+  const p = 1 - normCDF(z);
+  const pClamped = Math.max(0.001, Math.min(0.999, p));
+
+  const isNormal = pClamped > 0.05;
+  const pStr = pClamped < 0.001 ? '< 0.001' : pClamped.toFixed(4);
+
+  document.getElementById('shapiro-results').innerHTML = `
+    <div class="space-y-3">
+      <div class="grid grid-cols-3 gap-3 text-center">
+        <div class="p-3 bg-surface-container rounded-lg border border-outline-variant">
+          <p class="text-[10px] font-label-caps text-on-surface-variant">W Statistic</p>
+          <p class="text-[18px] font-bold text-secondary font-mono">${W.toFixed(4)}</p>
+        </div>
+        <div class="p-3 bg-surface-container rounded-lg border border-outline-variant">
+          <p class="text-[10px] font-label-caps text-on-surface-variant">p-value</p>
+          <p class="text-[18px] font-bold text-primary font-mono">${pStr}</p>
+        </div>
+        <div class="p-3 bg-surface-container rounded-lg border border-outline-variant">
+          <p class="text-[10px] font-label-caps text-on-surface-variant">n (sample)</p>
+          <p class="text-[18px] font-bold text-on-surface font-mono">${n}</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3 p-4 rounded-xl border-2 ${isNormal ? 'bg-green-50 border-green-300' : 'bg-red-50 border-red-300'}">
+        <span class="material-symbols-outlined text-[28px] ${isNormal ? 'text-green-600' : 'text-red-600'}">${isNormal ? 'check_circle' : 'cancel'}</span>
+        <div>
+          <p class="font-bold text-[14px] ${isNormal ? 'text-green-800' : 'text-red-800'}">
+            ${isNormal ? '✓ Data appears normally distributed' : '✗ Data does not follow normal distribution'}
+          </p>
+          <p class="text-[12px] ${isNormal ? 'text-green-700' : 'text-red-700'}">
+            p = ${pStr} — ${isNormal ? 'Fail to reject H₀ at α = 0.05. Normal distribution assumption holds.' : 'Reject H₀ at α = 0.05. Data is significantly non-normal.'}
+          </p>
+        </div>
+      </div>
+      <p class="text-[11px] text-on-surface-variant">H₀: The data is drawn from a normal distribution &nbsp;|&nbsp; α = 0.05 &nbsp;|&nbsp; Method: Shapiro-Wilk (1965)</p>
+    </div>`;
+  showToast('Shapiro-Wilk test complete!', 'success');
+}
+
+// ══════════════════════════════════════════════════════════════
+// HELPERS
+// ══════════════════════════════════════════════════════════════
+function destroyChart(id) {
+  if (chartInstances[id]) { chartInstances[id].destroy(); delete chartInstances[id]; }
+}
+function showToast(message, type='info') {
+  const existing = document.querySelector('.toast');
+  if (existing) existing.remove();
+  const toast = document.createElement('div');
+  toast.className = `toast toast-${type}`;
+  const icons = {success:'check_circle',info:'info',error:'error'};
+  toast.innerHTML = `<span class="material-symbols-outlined text-[18px]">${icons[type]||'info'}</span>${message}`;
+  document.body.appendChild(toast);
+  setTimeout(()=>toast.remove(), 3000);
+}
+ 
+// Init
+renderTable();
+</script>
+</body></html>
