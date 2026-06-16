@@ -1,0 +1,1186 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Data Analysis Toolkit</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Hanken+Grotesk:wght@600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<style>
+  .material-symbols-outlined{font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24;vertical-align:middle}
+  .custom-scrollbar::-webkit-scrollbar{width:6px;height:6px}
+  .custom-scrollbar::-webkit-scrollbar-track{background:transparent}
+  .custom-scrollbar::-webkit-scrollbar-thumb{background:#e2e8f0;border-radius:10px}
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover{background:#cbd5e1}
+  .toggle-checkbox:checked{right:0;border-color:#0061a5}
+  .toggle-checkbox:checked+.toggle-label{background-color:#d2e4ff}
+  .toggle-checkbox{right:1rem;transition:all .3s ease}
+  .drag-over{border-color:#0061a5!important;background-color:#f0f7ff!important}
+  .toast{position:fixed;bottom:80px;right:24px;z-index:9999;padding:12px 20px;border-radius:8px;font-size:14px;font-weight:500;display:flex;align-items:center;gap:8px;box-shadow:0 4px 12px rgba(0,0,0,.15);animation:slideIn .3s ease}
+  .toast-success{background:#dcfce7;color:#166534;border:1px solid #bbf7d0}
+  .toast-info{background:#dbeafe;color:#1e40af;border:1px solid #bfdbfe}
+  .toast-error{background:#fee2e2;color:#991b1b;border:1px solid #fecaca}
+  @keyframes slideIn{from{transform:translateX(100px);opacity:0}to{transform:translateX(0);opacity:1}}
+  #file-input{display:none}
+  .page-section{display:none}
+  .page-section.active{display:block}
+  .nav-item{cursor:pointer}
+  .nav-item.active{background-color:#d2e4ff;color:#001d37;font-weight:700}
+  .chart-container{position:relative;height:280px;width:100%}
+  .stat-card{transition:transform .2s,box-shadow .2s}
+  .stat-card:hover{transform:translateY(-2px);box-shadow:0 8px 20px rgba(0,0,0,.1)}
+</style>
+<script id="tailwind-config">
+tailwind.config={darkMode:"class",theme:{extend:{colors:{"on-primary":"#ffffff","secondary-fixed":"#d2e4ff","on-error-container":"#93000a","surface-container-low":"#f1f4f6","primary-container":"#1a365d","tertiary":"#122234","primary-fixed":"#d6e3ff","surface-variant":"#e0e3e5","inverse-on-surface":"#eef1f3","on-secondary-container":"#004172","surface-container-high":"#e5e9eb","background":"#f7fafc","on-tertiary-fixed":"#0d1c2e","secondary-container":"#66affe","on-primary-container":"#86a0cd","inverse-surface":"#2d3133","tertiary-container":"#28374a","surface-bright":"#f7fafc","on-error":"#ffffff","secondary":"#0061a5","surface-container":"#ebeef0","on-surface":"#181c1e","surface-dim":"#d7dadc","on-background":"#181c1e","on-surface-variant":"#43474e","inverse-primary":"#adc7f7","outline-variant":"#c4c6cf","surface":"#f7fafc","outline":"#74777f","primary":"#002045","surface-container-highest":"#e0e3e5","on-tertiary":"#ffffff","on-tertiary-container":"#91a0b7","surface-container-lowest":"#ffffff","error":"#ba1a1a","on-primary-fixed-variant":"#2d476f","on-secondary-fixed":"#001d37","on-secondary-fixed-variant":"#00497e"},borderRadius:{"DEFAULT":"0.125rem","lg":"0.25rem","xl":"0.5rem","full":"0.75rem"},fontFamily:{"body-sm":["Inter"],"body-lg":["Inter"],"label-caps":["Inter"],"display-lg":["Hanken Grotesk"],"headline-sm":["Hanken Grotesk"],"headline-md":["Hanken Grotesk"],"body-md":["Inter"],"code-sm":["JetBrains Mono"]},fontSize:{"body-sm":["14px",{"lineHeight":"20px","fontWeight":"400"}],"body-lg":["18px",{"lineHeight":"28px","fontWeight":"400"}],"label-caps":["12px",{"lineHeight":"16px","letterSpacing":"0.05em","fontWeight":"700"}],"display-lg":["48px",{"lineHeight":"56px","letterSpacing":"-0.02em","fontWeight":"700"}],"headline-sm":["24px",{"lineHeight":"32px","fontWeight":"600"}],"headline-md":["32px",{"lineHeight":"40px","fontWeight":"600"}],"body-md":["16px",{"lineHeight":"24px","fontWeight":"400"}],"code-sm":["13px",{"lineHeight":"18px","fontWeight":"500"}]}}}}
+</script>
+</head>
+<body class="bg-background text-on-surface font-body-md overflow-hidden">
+ 
+<input type="file" id="file-input" accept=".csv,.json"/>
+ 
+<!-- TOP NAV -->
+<header class="bg-surface w-full h-16 border-b border-outline-variant flex justify-between items-center px-8 z-50">
+  <div class="flex items-center gap-6">
+    <span class="font-headline-sm text-headline-sm font-bold text-primary">Data Analysis Toolkit</span>
+  </div>
+  <div class="flex items-center gap-4">
+    <div class="relative hidden lg:block">
+      <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+      <input id="search-input" class="bg-surface-container-low border-none rounded-full pl-10 pr-4 py-1.5 text-body-sm focus:ring-2 focus:ring-primary w-64" placeholder="Search variables..." type="text"/>
+    </div>
+    <!-- Notifications Button + Dropdown -->
+    <div class="relative" id="notif-wrapper">
+      <button onclick="toggleNotifications()" id="notif-btn" class="material-symbols-outlined text-primary p-2 hover:bg-surface-container-low rounded-full relative">notifications
+        <span id="notif-badge" class="absolute top-1 right-1 w-2 h-2 bg-error rounded-full"></span>
+      </button>
+      <div id="notif-dropdown" class="hidden absolute right-0 top-12 w-80 bg-white rounded-xl shadow-2xl border border-outline-variant z-[9999] overflow-hidden">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-outline-variant" style="background:linear-gradient(135deg,#002045,#0061a5)">
+          <p class="text-white font-bold text-[13px]">Notifications</p>
+          <button onclick="clearNotifications()" class="text-blue-200 text-[10px] font-bold uppercase hover:text-white">Clear all</button>
+        </div>
+        <div id="notif-list" class="max-h-72 overflow-y-auto divide-y divide-outline-variant">
+          <div class="flex items-start gap-3 px-4 py-3 hover:bg-surface-container-low transition-colors">
+            <span class="material-symbols-outlined text-secondary mt-0.5" style="font-size:18px">check_circle</span>
+            <div>
+              <p class="text-[12px] font-bold text-on-surface">Sample Dataset Loaded</p>
+              <p class="text-[11px] text-on-surface-variant">10 rows ready for analysis</p>
+              <p class="text-[10px] text-outline mt-0.5">Just now</p>
+            </div>
+          </div>
+          <div class="flex items-start gap-3 px-4 py-3 hover:bg-surface-container-low transition-colors">
+            <span class="material-symbols-outlined text-secondary mt-0.5" style="font-size:18px">info</span>
+            <div>
+              <p class="text-[12px] font-bold text-on-surface">Missing Values Detected</p>
+              <p class="text-[11px] text-on-surface-variant">NaN found in Trial_Value column</p>
+              <p class="text-[10px] text-outline mt-0.5">2 min ago</p>
+            </div>
+          </div>
+          <div class="flex items-start gap-3 px-4 py-3 hover:bg-surface-container-low transition-colors">
+            <span class="material-symbols-outlined text-secondary mt-0.5" style="font-size:18px">analytics</span>
+            <div>
+              <p class="text-[12px] font-bold text-on-surface">Toolkit Ready</p>
+              <p class="text-[11px] text-on-surface-variant">All 5 analysis modules loaded</p>
+              <p class="text-[10px] text-outline mt-0.5">5 min ago</p>
+            </div>
+          </div>
+        </div>
+        <div class="px-4 py-2 border-t border-outline-variant bg-surface-container-low">
+          <p class="text-[10px] text-center text-on-surface-variant">Data Analysis Toolkit — SRH University</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings Button + Dropdown -->
+    <div class="relative" id="settings-wrapper">
+      <button onclick="toggleSettings()" class="material-symbols-outlined text-primary p-2 hover:bg-surface-container-low rounded-full">settings</button>
+      <div id="settings-dropdown" class="hidden absolute right-0 top-12 w-72 bg-white rounded-xl shadow-2xl border border-outline-variant z-[9999] overflow-hidden">
+        <div class="px-4 py-3 border-b border-outline-variant" style="background:linear-gradient(135deg,#002045,#0061a5)">
+          <p class="text-white font-bold text-[13px]">Settings</p>
+          <p class="text-blue-200 text-[10px]">Customize your toolkit</p>
+        </div>
+        <div class="px-4 py-4 space-y-4">
+          <!-- Dark mode -->
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-2">
+              <span class="material-symbols-outlined text-secondary" style="font-size:18px">dark_mode</span>
+              <div>
+                <p class="text-[12px] font-bold text-on-surface">Dark Mode</p>
+                <p class="text-[10px] text-on-surface-variant">Switch to dark theme</p>
+              </div>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input type="checkbox" id="dark-mode-toggle" class="sr-only peer" onchange="toggleDarkMode(this)">
+              <div class="w-10 h-5 bg-outline-variant peer-checked:bg-secondary rounded-full transition-colors"></div>
+              <div class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform peer-checked:translate-x-5"></div>
+            </label>
+          </div>
+          <!-- Font size -->
+          <div>
+            <div class="flex items-center gap-2 mb-2">
+              <span class="material-symbols-outlined text-secondary" style="font-size:18px">text_fields</span>
+              <p class="text-[12px] font-bold text-on-surface">Font Size</p>
+            </div>
+            <div class="flex gap-2">
+              <button onclick="setFontSize('small')" class="flex-1 py-1.5 text-[11px] font-bold border border-outline-variant rounded-lg hover:bg-secondary hover:text-white hover:border-secondary transition-colors">Small</button>
+              <button onclick="setFontSize('medium')" class="flex-1 py-1.5 text-[11px] font-bold border border-secondary bg-secondary text-white rounded-lg">Medium</button>
+              <button onclick="setFontSize('large')" class="flex-1 py-1.5 text-[11px] font-bold border border-outline-variant rounded-lg hover:bg-secondary hover:text-white hover:border-secondary transition-colors">Large</button>
+            </div>
+          </div>
+          <!-- Table rows -->
+          <div>
+            <div class="flex items-center gap-2 mb-2">
+              <span class="material-symbols-outlined text-secondary" style="font-size:18px">table_rows</span>
+              <p class="text-[12px] font-bold text-on-surface">Table Rows Shown</p>
+            </div>
+            <select onchange="changeTableRows(this.value)" class="w-full border border-outline-variant rounded-lg px-3 py-1.5 text-[12px] text-on-surface focus:ring-2 focus:ring-secondary">
+              <option value="5">5 rows</option>
+              <option value="10" selected>10 rows</option>
+              <option value="20">20 rows</option>
+              <option value="50">50 rows</option>
+            </select>
+          </div>
+          <!-- Reset -->
+          <button onclick="resetSettings()" class="w-full py-2 border border-error text-error text-[11px] font-bold rounded-lg hover:bg-error hover:text-white transition-colors">
+            Reset to Default Settings
+          </button>
+        </div>
+      </div>
+    </div>
+    <div class="relative" id="profile-wrapper">
+      <img alt="User" id="profile-img" class="w-8 h-8 rounded-full border-2 border-secondary cursor-pointer hover:ring-2 hover:ring-secondary transition-all" src="https://i.ibb.co/4RY0gKdj/Screenshot-2026-06-08-212031.png" onclick="toggleProfileDropdown()"/>
+      <!-- Profile Dropdown -->
+      <div id="profile-dropdown" class="hidden absolute right-0 top-12 w-64 bg-white rounded-xl shadow-2xl border border-outline-variant z-[9999] overflow-hidden">
+        <!-- Gradient header with photo + name -->
+        <div style="background: linear-gradient(135deg, #002045 0%, #0061a5 100%);" class="px-5 py-5 flex flex-col items-center text-center">
+          <img src="https://i.ibb.co/4RY0gKdj/Screenshot-2026-06-08-212031.png" alt="Keerthana Kumbar"
+               class="w-20 h-20 rounded-full shadow-lg mb-3" style="border:3px solid rgba(255,255,255,0.8)"/>
+          <p class="text-white font-bold text-[15px] leading-tight">Keerthana Kumbar</p>
+          <p class="text-blue-200 text-[12px] mt-1">Cybersecurity M.Sc. Student</p>
+        </div>
+        <!-- Academic details -->
+        <div class="px-4 py-4 space-y-3">
+          <div class="flex items-start gap-2.5">
+            <span class="material-symbols-outlined text-secondary mt-0.5" style="font-size:16px">school</span>
+            <div>
+              <p class="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">University</p>
+              <p class="text-[12px] text-on-surface font-medium">SRH University of Applied Sciences</p>
+              <p class="text-[11px] text-on-surface-variant">Heidelberg, Germany</p>
+            </div>
+          </div>
+          <div class="flex items-start gap-2.5">
+            <span class="material-symbols-outlined text-secondary mt-0.5" style="font-size:16px">location_on</span>
+            <div>
+              <p class="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Campus</p>
+              <p class="text-[12px] text-on-surface font-medium">Leipzig</p>
+            </div>
+          </div>
+          <div class="flex items-start gap-2.5">
+            <span class="material-symbols-outlined text-secondary mt-0.5" style="font-size:16px">menu_book</span>
+            <div>
+              <p class="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">Subject</p>
+              <p class="text-[12px] text-on-surface font-medium">Tools and Methods of Data Analysis</p>
+              <p class="text-[11px] text-on-surface-variant font-mono">K_mcs_003</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+ 
+<div class="flex h-[calc(100vh-64px)]">
+  <!-- SIDE NAV -->
+  <aside class="fixed left-0 top-16 bottom-0 w-64 bg-surface-container-lowest border-r border-outline-variant flex flex-col p-3 z-40">
+    <div class="mb-6 px-2 py-3">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 flex items-center justify-center" style="flex-shrink:0">
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <!-- Hexagon background -->
+            <polygon points="20,2 35,11 35,29 20,38 5,29 5,11" fill="#002045"/>
+            <!-- Gradient bar chart inside -->
+            <rect x="10" y="24" width="4" height="8" rx="1" fill="#4fa3e0" opacity="0.7"/>
+            <rect x="16" y="18" width="4" height="14" rx="1" fill="#7ec8f7" opacity="0.85"/>
+            <rect x="22" y="13" width="4" height="19" rx="1" fill="#aee0ff"/>
+            <!-- Rising trend line -->
+            <polyline points="12,24 18,18 24,13 30,8" stroke="#ffffff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="none" opacity="0.8"/>
+            <!-- Dot at top of trend -->
+            <circle cx="30" cy="8" r="1.8" fill="#ffffff"/>
+          </svg>
+        </div>
+        <div>
+          <h2 class="font-headline-sm text-[16px] font-bold text-primary leading-tight">Project Analytics</h2>
+          <p class="text-on-surface-variant text-[10px] font-label-caps uppercase tracking-wider">SRH University</p>
+        </div>
+      </div>
+    </div>
+    <nav class="flex-grow space-y-1">
+      <a class="nav-item flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all font-label-caps text-label-caps rounded-lg" data-page="dashboard" onclick="navigateTo('dashboard')">
+        <span class="material-symbols-outlined">dashboard</span> Dashboard
+      </a>
+      <a class="nav-item active flex items-center gap-3 px-4 py-3 rounded-lg font-label-caps text-label-caps" data-page="exploration" onclick="navigateTo('exploration')">
+        <span class="material-symbols-outlined">database</span> Data Exploration
+      </a>
+      <a class="nav-item flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all font-label-caps text-label-caps rounded-lg" data-page="descriptive" onclick="navigateTo('descriptive')">
+        <span class="material-symbols-outlined">query_stats</span> Descriptive Statistics
+      </a>
+      <a class="nav-item flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all font-label-caps text-label-caps rounded-lg" data-page="visualization" onclick="navigateTo('visualization')">
+        <span class="material-symbols-outlined">bar_chart</span> Visualization
+      </a>
+      <a class="nav-item flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all font-label-caps text-label-caps rounded-lg" data-page="probability" onclick="navigateTo('probability')">
+        <span class="material-symbols-outlined">calculate</span> Probability
+      </a>
+      <a class="nav-item flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all font-label-caps text-label-caps rounded-lg" data-page="inference" onclick="navigateTo('inference')">
+        <span class="material-symbols-outlined">science</span> Statistical Inference
+      </a>
+      <a class="nav-item flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all font-label-caps text-label-caps rounded-lg" data-page="guide" onclick="navigateTo('guide')">
+        <span class="material-symbols-outlined">menu_book</span> User Guide
+      </a>
+    </nav>
+    <div class="mt-auto pt-4 border-t border-outline-variant space-y-1">
+      <button onclick="exportReport()" class="w-full bg-secondary text-on-secondary font-label-caps text-label-caps py-2.5 rounded-lg mb-3 hover:opacity-90 active:scale-95 transition-all">
+        Export Report
+      </button>
+      <a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant font-label-caps text-label-caps hover:bg-surface-container cursor-pointer rounded-lg" onclick="showToast('Documentation coming soon!','info')">
+        <span class="material-symbols-outlined">menu_book</span> Documentation
+      </a>
+    </div>
+  </aside>
+ 
+  <!-- MAIN CONTENT -->
+  <main class="flex-grow ml-64 overflow-y-auto bg-background custom-scrollbar">
+ 
+    <!-- ═══════════════════════════════════════════════
+         PAGE 1: DASHBOARD
+    ═══════════════════════════════════════════════ -->
+    <div id="page-dashboard" class="page-section p-8">
+      <div class="max-w-6xl mx-auto space-y-6">
+        <div>
+          <h2 class="font-headline-md text-headline-md text-primary">Dashboard</h2>
+          <p class="text-body-sm text-on-surface-variant">Overview of your current dataset and analysis status.</p>
+        </div>
+        <!-- Summary cards -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div class="stat-card bg-primary-container text-on-primary-container p-5 rounded-xl">
+            <p class="text-[10px] font-label-caps uppercase opacity-80 mb-1">Total Records</p>
+            <h3 id="dash-records" class="text-3xl font-bold">12</h3>
+            <p class="text-[11px] opacity-70 mt-1">rows loaded</p>
+          </div>
+          <div class="stat-card bg-secondary-container text-on-secondary-container p-5 rounded-xl">
+            <p class="text-[10px] font-label-caps uppercase opacity-80 mb-1">Columns</p>
+            <h3 class="text-3xl font-bold">5</h3>
+            <p class="text-[11px] opacity-70 mt-1">variables</p>
+          </div>
+          <div class="stat-card bg-surface-container-highest border border-outline-variant p-5 rounded-xl">
+            <p class="text-[10px] font-label-caps uppercase text-on-surface-variant mb-1">Missing Values</p>
+            <h3 id="dash-missing" class="text-3xl font-bold">2</h3>
+            <p class="text-[11px] text-on-surface-variant mt-1">null cells</p>
+          </div>
+          <div class="stat-card bg-green-50 border border-green-200 p-5 rounded-xl">
+            <p class="text-[10px] font-label-caps uppercase text-green-700 mb-1">Data Quality</p>
+            <h3 id="dash-quality" class="text-3xl font-bold text-green-700">98%</h3>
+            <p class="text-[11px] text-green-600 mt-1">completeness</p>
+          </div>
+        </div>
+        <!-- Mini charts row -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="bg-surface-container-lowest rounded-xl border border-outline-variant p-6">
+            <h4 class="font-headline-sm text-[18px] text-primary mb-4">Trial Value Distribution</h4>
+            <div class="chart-container"><canvas id="dash-histogram"></canvas></div>
+          </div>
+          <div class="bg-surface-container-lowest rounded-xl border border-outline-variant p-6">
+            <h4 class="font-headline-sm text-[18px] text-primary mb-4">Control Group Split</h4>
+            <div class="chart-container"><canvas id="dash-pie"></canvas></div>
+          </div>
+        </div>
+        <!-- Recent activity -->
+        <div class="bg-surface-container-lowest rounded-xl border border-outline-variant p-6">
+          <h4 class="font-headline-sm text-[18px] text-primary mb-4">Dataset Summary</h4>
+          <div id="dash-summary-table" class="overflow-x-auto"></div>
+        </div>
+      </div>
+    </div>
+ 
+    <!-- ═══════════════════════════════════════════════
+         PAGE 2: DATA EXPLORATION
+    ═══════════════════════════════════════════════ -->
+    <div id="page-exploration" class="page-section active p-8">
+      <div class="max-w-6xl mx-auto space-y-6">
+        <!-- Import -->
+        <section class="bg-surface-container-lowest rounded-xl border border-outline-variant p-6">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <h3 class="font-headline-sm text-headline-sm text-primary">Import Dataset</h3>
+              <p class="text-body-sm text-on-surface-variant">Upload CSV or JSON to begin cleaning and analysis.</p>
+            </div>
+            <div class="flex gap-2">
+              <span class="px-3 py-1 bg-surface-container-high rounded-full text-[10px] font-label-caps text-primary border border-outline-variant">CSV</span>
+              <span class="px-3 py-1 bg-surface-container-high rounded-full text-[10px] font-label-caps text-primary border border-outline-variant">JSON</span>
+            </div>
+          </div>
+          <div id="dropzone" class="border-2 border-dashed border-outline-variant rounded-lg p-10 flex flex-col items-center justify-center bg-surface-container-low hover:border-secondary transition-colors cursor-pointer"
+            ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)" onclick="document.getElementById('file-input').click()">
+            <div class="w-14 h-14 bg-white rounded-full flex items-center justify-center shadow mb-4">
+              <span class="material-symbols-outlined text-secondary text-4xl">cloud_upload</span>
+            </div>
+            <p class="font-body-md text-on-surface font-medium">Drag and drop your file here</p>
+            <p class="text-body-sm text-on-surface-variant mt-1">or click to browse (Max 50MB)</p>
+            <div class="mt-5 flex gap-4" onclick="event.stopPropagation()">
+              <button onclick="document.getElementById('file-input').click()" class="px-6 py-2 bg-primary text-on-primary rounded-lg font-label-caps text-label-caps hover:bg-tertiary transition-colors">Select File</button>
+              <button onclick="loadSampleDataset()" class="px-6 py-2 border border-outline text-primary rounded-lg font-label-caps text-label-caps hover:bg-surface-container-high transition-colors">Sample Dataset</button>
+            </div>
+          </div>
+          <div id="upload-status" class="hidden mt-3 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
+            <span class="material-symbols-outlined text-green-600">check_circle</span>
+            <span id="upload-filename" class="text-body-sm text-green-700 font-medium"></span>
+            <button onclick="clearUpload()" class="ml-auto text-green-600 hover:text-green-800 text-[11px] font-bold uppercase">Clear</button>
+          </div>
+        </section>
+ 
+        <div class="grid grid-cols-12 gap-6">
+          <!-- Table -->
+          <div class="col-span-12 lg:col-span-8 bg-surface-container-lowest rounded-xl border border-outline-variant flex flex-col min-h-[480px]">
+            <div class="p-5 border-b border-outline-variant flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <h3 class="font-headline-sm text-headline-sm text-primary">Data Preview</h3>
+                <div id="row-badge" class="bg-secondary-fixed text-on-secondary-fixed px-2 py-0.5 rounded text-[10px] font-bold">Showing Rows</div>
+              </div>
+              <div class="flex items-center gap-2">
+                <button onclick="refreshTable()" class="p-2 hover:bg-surface-container-high rounded text-on-surface-variant" title="Refresh"><span class="material-symbols-outlined">refresh</span></button>
+              </div>
+            </div>
+            <div class="flex-grow overflow-x-auto custom-scrollbar">
+              <table class="w-full border-collapse" id="data-table">
+                <thead>
+                  <tr class="bg-surface-container-high text-left">
+                    <th class="px-4 py-3 font-label-caps text-label-caps text-on-surface-variant border-r border-outline-variant">ID</th>
+                    <th class="px-4 py-3 font-label-caps text-label-caps text-on-surface-variant border-r border-outline-variant">Subject_Name</th>
+                    <th class="px-4 py-3 font-label-caps text-label-caps text-on-surface-variant border-r border-outline-variant">Trial_Value</th>
+                    <th class="px-4 py-3 font-label-caps text-label-caps text-on-surface-variant border-r border-outline-variant">Control_Group</th>
+                    <th class="px-4 py-3 font-label-caps text-label-caps text-on-surface-variant">Timestamp</th>
+                  </tr>
+                </thead>
+                <tbody id="table-body" class="text-body-sm"></tbody>
+              </table>
+            </div>
+            <div class="p-4 bg-surface-container-low flex justify-between items-center">
+              <span id="record-count" class="text-body-sm text-on-surface-variant"></span>
+              <div class="flex items-center gap-2">
+                <button id="prev-btn" onclick="changePage(-1)" class="p-1 px-3 border border-outline rounded text-label-caps font-label-caps disabled:opacity-50" disabled>Prev</button>
+                <span id="page-label" class="text-label-caps font-label-caps">Page 1</span>
+                <button id="next-btn" onclick="changePage(1)" class="p-1 px-3 border border-outline rounded text-label-caps font-label-caps hover:bg-white transition-colors">Next</button>
+              </div>
+            </div>
+          </div>
+ 
+          <!-- Tools -->
+          <div class="col-span-12 lg:col-span-4 flex flex-col gap-4">
+            <!-- Missing Values -->
+            <div class="bg-surface-container-lowest rounded-xl border border-outline-variant p-5">
+              <div class="flex items-center gap-2 mb-4">
+                <span class="material-symbols-outlined text-secondary">cleaning_services</span>
+                <h4 class="font-headline-sm text-[18px] text-primary">Handle Missing Values</h4>
+              </div>
+              <div class="space-y-3">
+                <div>
+                  <label class="font-label-caps text-label-caps text-on-surface-variant block mb-1">Strategy</label>
+                  <select id="imputation-strategy" class="w-full bg-background border border-outline-variant rounded-lg p-2 text-body-sm">
+                    <option>Mean Imputation</option>
+                    <option>Median Imputation</option>
+                    <option>Drop Rows with Missing</option>
+                    <option>Fill with Constant</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="font-label-caps text-label-caps text-on-surface-variant block mb-1">Affected Columns</label>
+                  <div id="affected-columns" class="flex flex-wrap gap-2">
+                    <span class="px-2 py-1 bg-surface-container-high rounded text-[11px] font-medium flex items-center gap-1">Trial_Value <button onclick="removeTag(this)" class="material-symbols-outlined text-[14px]">close</button></span>
+                    <button onclick="addColumn()" class="px-2 py-1 border border-dashed border-outline rounded text-[11px] font-medium text-secondary">+ Add</button>
+                  </div>
+                </div>
+                <button onclick="applyTransformation()" class="w-full bg-secondary text-on-secondary py-2 rounded-lg font-label-caps text-label-caps hover:bg-primary transition-colors">Apply Transformation</button>
+              </div>
+            </div>
+            <!-- Filtering -->
+            <div class="bg-surface-container-lowest rounded-xl border border-outline-variant p-5">
+              <div class="flex items-center gap-2 mb-4">
+                <span class="material-symbols-outlined text-secondary">filter_alt</span>
+                <h4 class="font-headline-sm text-[18px] text-primary">Basic Filtering</h4>
+              </div>
+              <div class="space-y-3">
+                <div class="relative">
+                  <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-[18px]">search</span>
+                  <input id="filter-input" class="w-full bg-background border border-outline-variant rounded-lg pl-10 pr-4 py-2 text-body-sm" placeholder="Filter by keyword..." type="text"/>
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="text-body-sm text-on-surface-variant">Exclude Outliers</span>
+                  <div class="relative inline-block w-10 mr-2 align-middle select-none">
+                    <input class="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer border-outline-variant" id="toggle" type="checkbox"/>
+                    <label class="toggle-label block overflow-hidden h-6 rounded-full bg-surface-container-high cursor-pointer" for="toggle"></label>
+                  </div>
+                </div>
+                <button onclick="applyFilter()" class="w-full bg-on-surface text-surface py-2 rounded-lg font-label-caps text-label-caps hover:opacity-90">Update Results</button>
+              </div>
+            </div>
+          </div>
+        </div>
+ 
+        <!-- Stats Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="bg-primary-container text-on-primary-container p-5 rounded-xl flex items-center justify-between shadow-sm">
+            <div><p class="text-[10px] font-label-caps uppercase opacity-80">Data Density</p><h5 id="stat-density" class="text-2xl font-bold">98.4%</h5></div>
+            <span class="material-symbols-outlined text-4xl opacity-20">analytics</span>
+          </div>
+          <div class="bg-secondary-container text-on-secondary-container p-5 rounded-xl flex items-center justify-between shadow-sm">
+            <div><p class="text-[10px] font-label-caps uppercase opacity-80">Missing Cells</p><h5 id="stat-missing" class="text-2xl font-bold">2 Cases</h5></div>
+            <span class="material-symbols-outlined text-4xl opacity-20">error_outline</span>
+          </div>
+          <div class="bg-surface-container-highest border border-outline-variant p-5 rounded-xl flex items-center justify-between shadow-sm">
+            <div><p class="text-[10px] font-label-caps uppercase text-on-surface-variant">Memory Usage</p><h5 id="stat-memory" class="text-2xl font-bold">0.0 MB</h5></div>
+            <span class="material-symbols-outlined text-4xl opacity-20">memory</span>
+          </div>
+        </div>
+      </div>
+    </div>
+ 
+    <!-- ═══════════════════════════════════════════════
+         PAGE 3: DESCRIPTIVE STATISTICS
+    ═══════════════════════════════════════════════ -->
+    <div id="page-descriptive" class="page-section p-8">
+      <div class="max-w-6xl mx-auto space-y-6">
+        <div>
+          <h2 class="font-headline-md text-headline-md text-primary">Descriptive Statistics</h2>
+          <p class="text-body-sm text-on-surface-variant">Summary statistics computed from your current dataset.</p>
+        </div>
+        <!-- Stats Table -->
+        <div class="bg-surface-container-lowest rounded-xl border border-outline-variant overflow-hidden">
+          <div class="p-5 border-b border-outline-variant flex items-center justify-between">
+            <h4 class="font-headline-sm text-[18px] text-primary">Numerical Summary</h4>
+            <button onclick="computeDescriptive()" class="px-4 py-2 bg-secondary text-on-secondary rounded-lg font-label-caps text-label-caps hover:opacity-90">Recompute</button>
+          </div>
+          <div class="overflow-x-auto custom-scrollbar">
+            <table class="w-full">
+              <thead class="bg-surface-container-high">
+                <tr>
+                  <th class="px-5 py-3 text-left font-label-caps text-label-caps text-on-surface-variant">Statistic</th>
+                  <th class="px-5 py-3 text-right font-label-caps text-label-caps text-on-surface-variant">Trial_Value</th>
+                  <th class="px-5 py-3 text-right font-label-caps text-label-caps text-on-surface-variant">Count</th>
+                  <th class="px-5 py-3 text-right font-label-caps text-label-caps text-on-surface-variant">Missing</th>
+                </tr>
+              </thead>
+              <tbody id="desc-table-body" class="text-body-sm divide-y divide-outline-variant"></tbody>
+            </table>
+          </div>
+        </div>
+        <!-- Frequency Table for groups -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="bg-surface-container-lowest rounded-xl border border-outline-variant p-5">
+            <h4 class="font-headline-sm text-[18px] text-primary mb-4">Frequency Table — Control_Group</h4>
+            <div id="freq-table"></div>
+          </div>
+          <div class="bg-surface-container-lowest rounded-xl border border-outline-variant p-5">
+            <h4 class="font-headline-sm text-[18px] text-primary mb-4">Five-Number Summary</h4>
+            <div id="five-num-summary"></div>
+          </div>
+        </div>
+        <!-- Histogram -->
+        <div class="bg-surface-container-lowest rounded-xl border border-outline-variant p-5">
+          <h4 class="font-headline-sm text-[18px] text-primary mb-4">Value Distribution Histogram</h4>
+          <div class="chart-container" style="height:300px"><canvas id="desc-histogram"></canvas></div>
+        </div>
+      </div>
+    </div>
+ 
+    <!-- ═══════════════════════════════════════════════
+         PAGE 4: VISUALIZATION
+    ═══════════════════════════════════════════════ -->
+    <div id="page-visualization" class="page-section p-8">
+      <div class="max-w-6xl mx-auto space-y-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <h2 class="font-headline-md text-headline-md text-primary">Visualization</h2>
+            <p class="text-body-sm text-on-surface-variant">Interactive charts generated from your dataset.</p>
+          </div>
+          <div class="flex gap-3">
+            <select id="viz-type" onchange="renderVisualization()" class="bg-surface-container-low border border-outline-variant rounded-lg px-3 py-2 text-body-sm">
+              <option value="bar">Bar Chart</option>
+              <option value="line">Line Chart</option>
+              <option value="scatter">Scatter Plot</option>
+              <option value="pie">Pie / Donut</option>
+              <option value="histogram">Histogram</option>
+            </select>
+            <button onclick="downloadChart()" class="px-4 py-2 bg-primary text-on-primary rounded-lg font-label-caps text-label-caps hover:opacity-90">Download PNG</button>
+          </div>
+        </div>
+        <!-- Chart area -->
+        <div class="bg-surface-container-lowest rounded-xl border border-outline-variant p-6">
+          <div style="height:380px;position:relative"><canvas id="main-viz-chart"></canvas></div>
+        </div>
+        <!-- Two small charts -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="bg-surface-container-lowest rounded-xl border border-outline-variant p-5">
+            <h4 class="font-headline-sm text-[16px] text-primary mb-3">Group Comparison (Box Whisker Proxy)</h4>
+            <div class="chart-container"><canvas id="viz-group-chart"></canvas></div>
+          </div>
+          <div class="bg-surface-container-lowest rounded-xl border border-outline-variant p-5">
+            <h4 class="font-headline-sm text-[16px] text-primary mb-3">Running Average Trend</h4>
+            <div class="chart-container"><canvas id="viz-trend-chart"></canvas></div>
+          </div>
+        </div>
+      </div>
+    </div>
+ 
+    <!-- ═══════════════════════════════════════════════
+         PAGE 5: PROBABILITY
+    ═══════════════════════════════════════════════ -->
+    <div id="page-probability" class="page-section p-8">
+      <div class="max-w-6xl mx-auto space-y-6">
+        <div>
+          <h2 class="font-headline-md text-headline-md text-primary">Probability</h2>
+          <p class="text-body-sm text-on-surface-variant">Probability distributions and calculations based on your data.</p>
+        </div>
+        <!-- Normal Distribution Calculator -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="bg-surface-container-lowest rounded-xl border border-outline-variant p-6">
+            <h4 class="font-headline-sm text-[18px] text-primary mb-4">Normal Distribution Calculator</h4>
+            <div class="space-y-4">
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="font-label-caps text-label-caps text-on-surface-variant block mb-1">Mean (μ)</label>
+                  <input id="prob-mean" type="number" step="0.01" value="15" class="w-full bg-background border border-outline-variant rounded-lg p-2 text-body-sm"/>
+                </div>
+                <div>
+                  <label class="font-label-caps text-label-caps text-on-surface-variant block mb-1">Std Dev (σ)</label>
+                  <input id="prob-std" type="number" step="0.01" value="4" class="w-full bg-background border border-outline-variant rounded-lg p-2 text-body-sm"/>
+                </div>
+              </div>
+              <div>
+                <label class="font-label-caps text-label-caps text-on-surface-variant block mb-1">X Value</label>
+                <input id="prob-x" type="number" step="0.01" value="18" class="w-full bg-background border border-outline-variant rounded-lg p-2 text-body-sm"/>
+              </div>
+              <button onclick="calculateProbability()" class="w-full bg-secondary text-on-secondary py-2 rounded-lg font-label-caps text-label-caps hover:bg-primary">Calculate</button>
+              <div id="prob-results" class="space-y-2 text-body-sm"></div>
+            </div>
+          </div>
+          <div class="bg-surface-container-lowest rounded-xl border border-outline-variant p-6">
+            <h4 class="font-headline-sm text-[18px] text-primary mb-4">Normal Curve</h4>
+            <div class="chart-container"><canvas id="prob-curve-chart"></canvas></div>
+          </div>
+        </div>
+        <!-- Z-Score Table -->
+        <div class="bg-surface-container-lowest rounded-xl border border-outline-variant p-6">
+          <h4 class="font-headline-sm text-[18px] text-primary mb-4">Z-Score Analysis — Dataset Values</h4>
+          <div class="overflow-x-auto custom-scrollbar">
+            <table class="w-full text-body-sm">
+              <thead class="bg-surface-container-high">
+                <tr>
+                  <th class="px-4 py-3 text-left font-label-caps text-label-caps text-on-surface-variant">Subject</th>
+                  <th class="px-4 py-3 text-right font-label-caps text-label-caps text-on-surface-variant">Value</th>
+                  <th class="px-4 py-3 text-right font-label-caps text-label-caps text-on-surface-variant">Z-Score</th>
+                  <th class="px-4 py-3 text-right font-label-caps text-label-caps text-on-surface-variant">Percentile</th>
+                  <th class="px-4 py-3 text-center font-label-caps text-label-caps text-on-surface-variant">Classification</th>
+                </tr>
+              </thead>
+              <tbody id="zscore-table" class="divide-y divide-outline-variant"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+ 
+    <!-- ═══════════════════════════════════════════════
+         PAGE 6: STATISTICAL INFERENCE
+    ═══════════════════════════════════════════════ -->
+    <div id="page-inference" class="page-section p-8">
+      <div class="max-w-6xl mx-auto space-y-6">
+        <div>
+          <h2 class="font-headline-md text-headline-md text-primary">Statistical Inference</h2>
+          <p class="text-body-sm text-on-surface-variant">Hypothesis testing and confidence intervals.</p>
+        </div>
+        <!-- One-sample t-test -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="bg-surface-container-lowest rounded-xl border border-outline-variant p-6">
+            <h4 class="font-headline-sm text-[18px] text-primary mb-1">One-Sample T-Test</h4>
+            <p class="text-[12px] text-on-surface-variant mb-4">Test if the mean Trial_Value differs from a hypothesized value.</p>
+            <div class="space-y-3">
+              <div>
+                <label class="font-label-caps text-label-caps text-on-surface-variant block mb-1">Hypothesized Mean (μ₀)</label>
+                <input id="ttest-mu" type="number" step="0.01" value="15" class="w-full bg-background border border-outline-variant rounded-lg p-2 text-body-sm"/>
+              </div>
+              <div>
+                <label class="font-label-caps text-label-caps text-on-surface-variant block mb-1">Significance Level (α)</label>
+                <select id="ttest-alpha" class="w-full bg-background border border-outline-variant rounded-lg p-2 text-body-sm">
+                  <option value="0.05">0.05</option>
+                  <option value="0.01">0.01</option>
+                  <option value="0.10">0.10</option>
+                </select>
+              </div>
+              <div>
+                <label class="font-label-caps text-label-caps text-on-surface-variant block mb-1">Test Type</label>
+                <select id="ttest-type" class="w-full bg-background border border-outline-variant rounded-lg p-2 text-body-sm">
+                  <option value="two">Two-tailed</option>
+                  <option value="left">Left-tailed</option>
+                  <option value="right">Right-tailed</option>
+                </select>
+              </div>
+              <button onclick="runTTest()" class="w-full bg-secondary text-on-secondary py-2 rounded-lg font-label-caps text-label-caps hover:bg-primary">Run T-Test</button>
+            </div>
+          </div>
+          <div class="bg-surface-container-lowest rounded-xl border border-outline-variant p-6">
+            <h4 class="font-headline-sm text-[18px] text-primary mb-4">T-Test Results</h4>
+            <div id="ttest-results" class="space-y-3 text-body-sm">
+              <p class="text-on-surface-variant">Configure and run the test to see results.</p>
+            </div>
+          </div>
+        </div>
+        <!-- Confidence Interval -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div class="bg-surface-container-lowest rounded-xl border border-outline-variant p-6">
+            <h4 class="font-headline-sm text-[18px] text-primary mb-1">Confidence Interval for Mean</h4>
+            <p class="text-[12px] text-on-surface-variant mb-4">Estimate the true population mean.</p>
+            <div class="space-y-3">
+              <div>
+                <label class="font-label-caps text-label-caps text-on-surface-variant block mb-1">Confidence Level</label>
+                <select id="ci-level" class="w-full bg-background border border-outline-variant rounded-lg p-2 text-body-sm">
+                  <option value="0.95">95%</option>
+                  <option value="0.99">99%</option>
+                  <option value="0.90">90%</option>
+                </select>
+              </div>
+              <button onclick="computeCI()" class="w-full bg-secondary text-on-secondary py-2 rounded-lg font-label-caps text-label-caps hover:bg-primary">Compute Interval</button>
+            </div>
+          </div>
+          <div class="bg-surface-container-lowest rounded-xl border border-outline-variant p-6">
+            <h4 class="font-headline-sm text-[18px] text-primary mb-4">CI Results</h4>
+            <div id="ci-results" class="space-y-3 text-body-sm">
+              <p class="text-on-surface-variant">Select confidence level and click Compute.</p>
+            </div>
+          </div>
+        </div>
+        <!-- Two-sample comparison -->
+        <div class="bg-surface-container-lowest rounded-xl border border-outline-variant p-6">
+          <h4 class="font-headline-sm text-[18px] text-primary mb-1">Two-Sample Group Comparison</h4>
+          <p class="text-[12px] text-on-surface-variant mb-4">Compare Trial_Value between Control (TRUE) and Treatment (FALSE) groups.</p>
+          <button onclick="runTwoSampleTest()" class="px-6 py-2 bg-secondary text-on-secondary rounded-lg font-label-caps text-label-caps hover:bg-primary">Run Comparison</button>
+          <div id="twosample-results" class="mt-4 space-y-3 text-body-sm"></div>
+        </div>
+        <!-- Normality Test -->
+        <div class="bg-surface-container-lowest rounded-xl border border-outline-variant p-6">
+          <div class="flex items-center justify-between mb-1">
+            <h4 class="font-headline-sm text-[18px] text-primary">Normality Test — Shapiro-Wilk</h4>
+            <span class="text-[10px] font-bold px-2 py-0.5 rounded-full bg-primary-container text-on-primary-container uppercase tracking-wider">Auto-runs on data</span>
+          </div>
+          <p class="text-[12px] text-on-surface-variant mb-4">Tests whether the dataset follows a normal distribution (H₀: data is normally distributed).</p>
+          <button onclick="runShapiroWilk()" class="px-6 py-2 bg-secondary text-on-secondary rounded-lg font-label-caps text-label-caps hover:bg-primary mb-4">Run Shapiro-Wilk Test</button>
+          <div id="shapiro-results">
+            <p class="text-[12px] text-on-surface-variant">Click the button to run the normality test on your dataset.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+ 
+    <!-- USER GUIDE PAGE -->
+    <div id="page-guide" class="page-section p-8">
+      <div class="max-w-4xl mx-auto space-y-6">
+        <!-- Header -->
+        <div class="rounded-xl p-6 text-white" style="background:linear-gradient(135deg,#002045 0%,#0061a5 100%)">
+          <div class="flex items-center gap-4">
+            <span class="material-symbols-outlined text-white" style="font-size:40px">menu_book</span>
+            <div>
+              <h2 class="text-[22px] font-bold">User Guide</h2>
+              <p class="text-blue-200 text-[13px]">Data Analysis Toolkit · Tools and Methods of Data Analysis (K_mcs_003)</p>
+              <p class="text-blue-300 text-[11px] mt-0.5">SRH University of Applied Sciences Heidelberg · Leipzig Campus · 2026</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Overview -->
+        <div class="bg-surface-container-lowest rounded-xl border border-outline-variant p-6">
+          <h3 class="text-[16px] font-bold text-primary mb-2 flex items-center gap-2"><span class="material-symbols-outlined text-secondary" style="font-size:20px">info</span>What is this Toolkit?</h3>
+          <p class="text-[13px] text-on-surface leading-relaxed">The <strong>Data Analysis Toolkit</strong> is a fully browser-based, interactive statistical analysis platform built with HTML5, JavaScript, and Tailwind CSS. It requires no installation, no coding knowledge, and no internet connection after loading. Users can upload their own CSV or JSON datasets and immediately perform data exploration, statistical analysis, visualization, probability calculations, and hypothesis testing — all in one place.</p>
+        </div>
+
+        <!-- How to use -->
+        <div class="bg-surface-container-lowest rounded-xl border border-outline-variant p-6">
+          <h3 class="text-[16px] font-bold text-primary mb-4 flex items-center gap-2"><span class="material-symbols-outlined text-secondary" style="font-size:20px">play_circle</span>How to Use — Step by Step</h3>
+          <div class="space-y-3">
+            <div class="flex gap-3 items-start">
+              <div class="w-6 h-6 rounded-full bg-secondary text-white flex items-center justify-center text-[11px] font-bold flex-shrink-0 mt-0.5">1</div>
+              <div><p class="text-[13px] font-bold text-on-surface">Load a Dataset</p><p class="text-[12px] text-on-surface-variant">Click "Upload CSV / JSON" on the Dashboard or drag and drop your file. A built-in sample dataset with 10 subjects (Trial_Value, Group, Control) is available if you have no file ready.</p></div>
+            </div>
+            <div class="flex gap-3 items-start">
+              <div class="w-6 h-6 rounded-full bg-secondary text-white flex items-center justify-center text-[11px] font-bold flex-shrink-0 mt-0.5">2</div>
+              <div><p class="text-[13px] font-bold text-on-surface">Explore the Data</p><p class="text-[12px] text-on-surface-variant">Navigate to "Data Exploration" to view the raw data table, check for missing values, filter rows, and export a cleaned CSV report.</p></div>
+            </div>
+            <div class="flex gap-3 items-start">
+              <div class="w-6 h-6 rounded-full bg-secondary text-white flex items-center justify-center text-[11px] font-bold flex-shrink-0 mt-0.5">3</div>
+              <div><p class="text-[13px] font-bold text-on-surface">View Descriptive Statistics</p><p class="text-[12px] text-on-surface-variant">Go to "Descriptive Statistics" to see mean, median, standard deviation, variance, min, max, and range — automatically calculated from your dataset.</p></div>
+            </div>
+            <div class="flex gap-3 items-start">
+              <div class="w-6 h-6 rounded-full bg-secondary text-white flex items-center justify-center text-[11px] font-bold flex-shrink-0 mt-0.5">4</div>
+              <div><p class="text-[13px] font-bold text-on-surface">Visualize</p><p class="text-[12px] text-on-surface-variant">Open "Visualization" to generate an interactive histogram showing the frequency distribution of values across defined ranges.</p></div>
+            </div>
+            <div class="flex gap-3 items-start">
+              <div class="w-6 h-6 rounded-full bg-secondary text-white flex items-center justify-center text-[11px] font-bold flex-shrink-0 mt-0.5">5</div>
+              <div><p class="text-[13px] font-bold text-on-surface">Probability Distributions</p><p class="text-[12px] text-on-surface-variant">Use the "Probability" module to compute PDF, CDF (P(X≤x), P(X>x)), Z-scores, and percentiles via the Normal Distribution Calculator. A live normal curve chart updates as you type.</p></div>
+            </div>
+            <div class="flex gap-3 items-start">
+              <div class="w-6 h-6 rounded-full bg-secondary text-white flex items-center justify-center text-[11px] font-bold flex-shrink-0 mt-0.5">6</div>
+              <div><p class="text-[13px] font-bold text-on-surface">Statistical Inference</p><p class="text-[12px] text-on-surface-variant">Run a One-Sample T-Test, compute Confidence Intervals, compare two groups, and run the Shapiro-Wilk Normality Test — all with real statistical output and pass/fail interpretation.</p></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modules overview -->
+        <div class="bg-surface-container-lowest rounded-xl border border-outline-variant p-6">
+          <h3 class="text-[16px] font-bold text-primary mb-4 flex items-center gap-2"><span class="material-symbols-outlined text-secondary" style="font-size:20px">widgets</span>Toolkit Modules</h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div class="flex gap-3 p-3 bg-surface-container rounded-lg border border-outline-variant">
+              <span class="material-symbols-outlined text-secondary" style="font-size:22px">table_view</span>
+              <div><p class="text-[12px] font-bold text-on-surface">Data Exploration</p><p class="text-[11px] text-on-surface-variant">Import CSV/JSON · Raw table · Missing value detection · Search & filter · Export</p></div>
+            </div>
+            <div class="flex gap-3 p-3 bg-surface-container rounded-lg border border-outline-variant">
+              <span class="material-symbols-outlined text-secondary" style="font-size:22px">calculate</span>
+              <div><p class="text-[12px] font-bold text-on-surface">Descriptive Statistics</p><p class="text-[11px] text-on-surface-variant">Mean · Median · Std Dev · Variance · Min · Max · Range · Count</p></div>
+            </div>
+            <div class="flex gap-3 p-3 bg-surface-container rounded-lg border border-outline-variant">
+              <span class="material-symbols-outlined text-secondary" style="font-size:22px">bar_chart</span>
+              <div><p class="text-[12px] font-bold text-on-surface">Data Visualization</p><p class="text-[11px] text-on-surface-variant">Interactive histogram · Frequency distribution · Tooltips · Chart.js powered</p></div>
+            </div>
+            <div class="flex gap-3 p-3 bg-surface-container rounded-lg border border-outline-variant">
+              <span class="material-symbols-outlined text-secondary" style="font-size:22px">functions</span>
+              <div><p class="text-[12px] font-bold text-on-surface">Probability Distributions</p><p class="text-[11px] text-on-surface-variant">Normal PDF & CDF · Z-score · Percentile · Normal curve · Z-score table</p></div>
+            </div>
+            <div class="flex gap-3 p-3 bg-surface-container rounded-lg border border-outline-variant md:col-span-2">
+              <span class="material-symbols-outlined text-secondary" style="font-size:22px">science</span>
+              <div><p class="text-[12px] font-bold text-on-surface">Statistical Inference</p><p class="text-[11px] text-on-surface-variant">One-sample T-test · Confidence intervals (90/95/99%) · Two-sample comparison · Shapiro-Wilk normality test</p></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Sample dataset -->
+        <div class="bg-surface-container-lowest rounded-xl border border-outline-variant p-6">
+          <h3 class="text-[16px] font-bold text-primary mb-3 flex items-center gap-2"><span class="material-symbols-outlined text-secondary" style="font-size:20px">dataset</span>Sample Dataset</h3>
+          <p class="text-[13px] text-on-surface-variant mb-3">The built-in demo dataset simulates a clinical trial with 10 subjects. It contains three columns:</p>
+          <div class="overflow-x-auto">
+            <table class="w-full text-[12px] border-collapse">
+              <thead><tr class="bg-primary text-white"><th class="p-2 text-left rounded-tl-lg">Column</th><th class="p-2 text-left">Type</th><th class="p-2 text-left rounded-tr-lg">Description</th></tr></thead>
+              <tbody>
+                <tr class="border-b border-outline-variant"><td class="p-2 font-mono font-bold text-secondary">Subject</td><td class="p-2 text-on-surface-variant">Text</td><td class="p-2 text-on-surface-variant">Subject identifier (e.g. Alpha_22, Gamma_44)</td></tr>
+                <tr class="border-b border-outline-variant bg-surface-container"><td class="p-2 font-mono font-bold text-secondary">Trial_Value</td><td class="p-2 text-on-surface-variant">Number</td><td class="p-2 text-on-surface-variant">Measured numeric value for analysis (range: ~8–24)</td></tr>
+                <tr><td class="p-2 font-mono font-bold text-secondary">Control</td><td class="p-2 text-on-surface-variant">Boolean</td><td class="p-2 text-on-surface-variant">TRUE = control group, FALSE = treatment group</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Tips -->
+        <div class="bg-surface-container-lowest rounded-xl border border-outline-variant p-6">
+          <h3 class="text-[16px] font-bold text-primary mb-3 flex items-center gap-2"><span class="material-symbols-outlined text-secondary" style="font-size:20px">tips_and_updates</span>Tips & Features</h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-[12px] text-on-surface-variant">
+            <div class="flex gap-2"><span class="material-symbols-outlined text-secondary" style="font-size:16px">check</span>Upload any CSV with numeric columns — the toolkit auto-detects value columns</div>
+            <div class="flex gap-2"><span class="material-symbols-outlined text-secondary" style="font-size:16px">check</span>Use the search bar in the top nav to filter data rows instantly</div>
+            <div class="flex gap-2"><span class="material-symbols-outlined text-secondary" style="font-size:16px">check</span>Dark mode and font size can be adjusted in Settings (⚙ top right)</div>
+            <div class="flex gap-2"><span class="material-symbols-outlined text-secondary" style="font-size:16px">check</span>Export a cleaned CSV report from the Data Exploration page</div>
+            <div class="flex gap-2"><span class="material-symbols-outlined text-secondary" style="font-size:16px">check</span>All calculations update automatically when new data is loaded</div>
+            <div class="flex gap-2"><span class="material-symbols-outlined text-secondary" style="font-size:16px">check</span>Works fully offline — no server or internet required after page load</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Onboarding tip -->
+<div class="fixed bottom-8 right-8 bg-surface border border-outline-variant p-4 rounded-xl shadow-lg z-50 max-w-xs" id="onboarding-tooltip">
+  <div class="flex items-start gap-3">
+    <span class="material-symbols-outlined text-secondary">tips_and_updates</span>
+    <div>
+      <p class="font-bold text-body-sm text-primary">Quick Tip</p>
+      <p class="text-body-sm text-on-surface-variant">Upload a CSV file or click "Sample Dataset" then explore all 5 pages!</p>
+      <button class="mt-2 text-[10px] font-bold text-secondary uppercase hover:underline" onclick="document.getElementById('onboarding-tooltip').remove()">Dismiss</button>
+    </div>
+  </div>
+</div>
+ 
+<script>
+// ══════════════════════════════════════════════════════════════
+// DATA
+// ══════════════════════════════════════════════════════════════
+const SAMPLE_DATA = [
+  {id:"001",name:"Alpha_22",  value:14.285,group:true, time:"2023-10-12 14:20"},
+  {id:"002",name:"Beta_19",   value:null,  group:false,time:"2023-10-12 14:22"},
+  {id:"003",name:"Gamma_44",  value:19.002,group:true, time:"2023-10-12 14:25"},
+  {id:"004",name:"Delta_05",  value:12.990,group:true, time:"2023-10-12 14:28"},
+  {id:"005",name:"Epsilon_12",value:8.441, group:false,time:"2023-10-12 14:31"},
+  {id:"006",name:"Zeta_08",   value:22.115,group:true, time:"2023-10-12 14:35"},
+  {id:"007",name:"Eta_31",    value:15.660,group:false,time:"2023-10-12 14:38"},
+  {id:"008",name:"Theta_27",  value:11.002,group:true, time:"2023-10-12 14:42"},
+  {id:"009",name:"Iota_16",   value:null,  group:false,time:"2023-10-12 14:45"},
+  {id:"010",name:"Kappa_33",  value:17.334,group:true, time:"2023-10-12 14:48"},
+  {id:"011",name:"Lambda_09", value:9.871, group:false,time:"2023-10-12 14:51"},
+  {id:"012",name:"Mu_21",     value:24.001,group:true, time:"2023-10-12 14:55"},
+];
+ 
+let allData = [...SAMPLE_DATA];
+let filteredData = [...allData];
+let currentPage = 1;
+const rowsPerPage = 10;
+let chartInstances = {};
+ 
+// ══════════════════════════════════════════════════════════════
+// NAVIGATION
+// ══════════════════════════════════════════════════════════════
+function navigateTo(page) {
+  document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  const pageEl = document.getElementById('page-' + page);
+  if (pageEl) pageEl.classList.add('active');
+  // Use data-page attribute for reliable matching
+  document.querySelectorAll('.nav-item[data-page]').forEach(n => {
+    if (n.getAttribute('data-page') === page) n.classList.add('active');
+  });
+  // Scroll to top
+  document.querySelector('main').scrollTop = 0;
+  // Render page content
+  setTimeout(() => {
+    if (page === 'dashboard') renderDashboard();
+    if (page === 'descriptive') computeDescriptive();
+    if (page === 'visualization') renderVisualization();
+    if (page === 'probability') { calculateProbability(); renderZScoreTable(); }
+    if (page === 'inference') { /* already rendered via buttons */ }
+  }, 50);
+}
+ 
+// ══════════════════════════════════════════════════════════════
+// TABLE
+// ══════════════════════════════════════════════════════════════
+function renderTable() {
+  const tbody = document.getElementById('table-body');
+  const start = (currentPage-1)*rowsPerPage;
+  const pageData = filteredData.slice(start, start+rowsPerPage);
+  const totalPages = Math.max(1, Math.ceil(filteredData.length/rowsPerPage));
+  tbody.innerHTML = pageData.map((row,i) => `
+    <tr class="border-b border-outline-variant hover:bg-surface-container-low transition-colors cursor-pointer ${i%2===1?'bg-surface-container-lowest':''}" onclick="selectRow(this)">
+      <td class="px-4 py-3 font-code-sm text-code-sm border-r border-outline-variant">${row.id}</td>
+      <td class="px-4 py-3 border-r border-outline-variant">${row.name}</td>
+      <td class="px-4 py-3 text-right border-r border-outline-variant ${row.value===null?'text-red-600 font-bold':''}">${row.value===null?'NaN':row.value.toFixed(3)}</td>
+      <td class="px-4 py-3 border-r border-outline-variant"><span class="px-2 py-0.5 ${row.group?'bg-green-100 text-green-700':'bg-red-100 text-red-700'} text-[10px] font-bold rounded">${row.group?'TRUE':'FALSE'}</span></td>
+      <td class="px-4 py-3">${row.time}</td>
+    </tr>`).join('');
+  document.getElementById('page-label').textContent = `Page ${currentPage} of ${totalPages}`;
+  document.getElementById('record-count').textContent = `Total Records: ${filteredData.length} | Columns: 5`;
+  document.getElementById('row-badge').textContent = `Showing ${pageData.length} Rows`;
+  document.getElementById('prev-btn').disabled = currentPage===1;
+  document.getElementById('next-btn').disabled = currentPage>=totalPages;
+  const missing = filteredData.filter(r=>r.value===null).length;
+  const density = ((filteredData.length-missing)/Math.max(1,filteredData.length)*100).toFixed(1);
+  document.getElementById('stat-missing').textContent = `${missing} Cases`;
+  document.getElementById('stat-density').textContent = `${density}%`;
+  document.getElementById('stat-memory').textContent = `${(filteredData.length*0.003).toFixed(2)} MB`;
+}
+ 
+function selectRow(row) {
+  document.querySelectorAll('#table-body tr').forEach(r=>r.style.background='');
+  row.style.background='#d2e4ff';
+}
+function changePage(dir) {
+  const total = Math.ceil(filteredData.length/rowsPerPage);
+  currentPage = Math.max(1,Math.min(total, currentPage+dir));
+  renderTable();
+}
+function refreshTable() { renderTable(); showToast('Table refreshed!','success'); }
+ 
+// ══════════════════════════════════════════════════════════════
+// FILE UPLOAD
+// ══════════════════════════════════════════════════════════════
+document.getElementById('file-input').addEventListener('change', function(e) {
+  if (e.target.files[0]) handleFile(e.target.files[0]);
+});
+function handleFile(file) {
+  if (file.size > 50*1024*1024) { showToast('File too large! Max 50MB.','error'); return; }
+  if (!file.name.match(/\.(csv|json)$/i)) { showToast('Only CSV and JSON supported.','error'); return; }
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      let parsed = [];
+      if (file.name.endsWith('.json')) {
+        parsed = JSON.parse(e.target.result);
+        if (!Array.isArray(parsed)) parsed = [parsed];
+      } else {
+        const lines = e.target.result.trim().split('\n');
+        const headers = lines[0].split(',').map(h=>h.trim());
+        parsed = lines.slice(1).map((line,i) => {
+          const vals = line.split(',');
+          const obj = {};
+          headers.forEach((h,j) => obj[h] = vals[j]?.trim()||null);
+          const id = String(i+1).padStart(3,'0');
+          const name = obj[headers[0]]||obj.name||obj.Subject_Name||`Row_${id}`;
+          const value = parseFloat(obj[headers[1]]||obj.value||obj.Trial_Value);
+          const group = (obj[headers[2]]||obj.group||obj.Control_Group||'').toString().toLowerCase()==='true';
+          const time = obj[headers[3]]||obj.time||obj.Timestamp||new Date().toISOString().slice(0,16).replace('T',' ');
+          return {id, name, value: isNaN(value)?null:value, group, time};
+        });
+      }
+      allData = parsed;
+      filteredData = [...allData];
+      currentPage = 1;
+      renderTable();
+      document.getElementById('upload-status').classList.remove('hidden');
+      document.getElementById('upload-filename').textContent = `✓ Loaded: ${file.name} (${parsed.length} rows)`;
+      showToast(`File loaded: ${file.name}`,'success');
+    } catch(err) { showToast('Could not parse file. Check format.','error'); }
+  };
+  reader.readAsText(file);
+}
+function handleDragOver(e) { e.preventDefault(); document.getElementById('dropzone').classList.add('drag-over'); }
+function handleDragLeave() { document.getElementById('dropzone').classList.remove('drag-over'); }
+function handleDrop(e) {
+  e.preventDefault();
+  document.getElementById('dropzone').classList.remove('drag-over');
+  if (e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
+}
+function clearUpload() {
+  allData = [...SAMPLE_DATA]; filteredData = [...allData]; currentPage = 1; renderTable();
+  document.getElementById('upload-status').classList.add('hidden');
+  document.getElementById('file-input').value = '';
+  showToast('Cleared. Sample data restored.','info');
+}
+function loadSampleDataset() {
+  allData = [...SAMPLE_DATA]; filteredData = [...allData]; currentPage = 1; renderTable();
+  document.getElementById('upload-status').classList.remove('hidden');
+  document.getElementById('upload-filename').textContent = '✓ Sample dataset loaded (12 rows)';
+  showToast('Sample dataset loaded!','success');
+}
+ 
+// ══════════════════════════════════════════════════════════════
+// TRANSFORMATIONS
+// ══════════════════════════════════════════════════════════════
+function applyTransformation() {
+  const strategy = document.getElementById('imputation-strategy').value;
+  const values = allData.filter(r=>r.value!==null).map(r=>r.value);
+  const mean = values.reduce((a,b)=>a+b,0)/values.length;
+  const sorted = [...values].sort((a,b)=>a-b);
+  const median = sorted[Math.floor(sorted.length/2)];
+  if (strategy==='Mean Imputation') {
+    allData = allData.map(r=>({...r, value:r.value===null?parseFloat(mean.toFixed(3)):r.value}));
+    showToast(`Mean imputation applied (μ = ${mean.toFixed(3)})`,'success');
+  } else if (strategy==='Median Imputation') {
+    allData = allData.map(r=>({...r, value:r.value===null?median:r.value}));
+    showToast(`Median imputation applied (median = ${median.toFixed(3)})`,'success');
+  } else if (strategy==='Drop Rows with Missing') {
+    const before = allData.length;
+    allData = allData.filter(r=>r.value!==null);
+    showToast(`Dropped ${before-allData.length} rows with missing values`,'success');
+  } else {
+    allData = allData.map(r=>({...r, value:r.value===null?0:r.value}));
+    showToast('Filled missing values with 0','success');
+  }
+  filteredData = [...allData]; renderTable();
+}
+function removeTag(btn) { btn.closest('span').remove(); showToast('Column removed','info'); }
+function addColumn() {
+  const name = prompt('Enter column name to add:');
+  if (name) {
+    const container = document.getElementById('affected-columns');
+    const addBtn = container.querySelector('button');
+    const tag = document.createElement('span');
+    tag.className = 'px-2 py-1 bg-surface-container-high rounded text-[11px] font-medium flex items-center gap-1';
+    tag.innerHTML = `${name} <button onclick="removeTag(this)" class="material-symbols-outlined text-[14px]">close</button>`;
+    container.insertBefore(tag, addBtn);
+    showToast(`Column "${name}" added`,'success');
+  }
+}
+function applyFilter() {
+  const keyword = document.getElementById('filter-input').value.toLowerCase().trim();
+  const excludeOutliers = document.getElementById('toggle').checked;
+  let data = [...allData];
+  if (keyword) data = data.filter(r=>r.name.toLowerCase().includes(keyword)||String(r.id).includes(keyword)||String(r.value).includes(keyword));
+  if (excludeOutliers) {
+    const vals = data.filter(r=>r.value!==null).map(r=>r.value);
+    const m = vals.reduce((a,b)=>a+b,0)/vals.length;
+    const sd = Math.sqrt(vals.map(v=>(v-m)**2).reduce((a,b)=>a+b,0)/vals.length);
+    data = data.filter(r=>r.value===null||Math.abs(r.value-m)<=2*sd);
+  }
+  filteredData = data; currentPage = 1; renderTable();
+  showToast(`Filter applied: ${filteredData.length} results`,'success');
+}
+document.getElementById('search-input').addEventListener('input', function() {
+  const val = this.value.toLowerCase();
+  filteredData = val ? allData.filter(r=>r.name.toLowerCase().includes(val)||String(r.id).includes(val)) : [...allData];
+  currentPage = 1; renderTable();
+});
+ 
+// ══════════════════════════════════════════════════════════════
+// EXPORT
+// ══════════════════════════════════════════════════════════════
+function exportReport() {
+  const headers = ['ID','Subject_Name','Trial_Value','Control_Group','Timestamp'];
+  const rows = filteredData.map(r=>[r.id,r.name,r.value??'NaN',r.group,r.time]);
+  const csv = [headers,...rows].map(r=>r.join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'}));
+  a.download = 'statlab_report.csv'; a.click();
+  showToast('Report exported as CSV!','success');
+}
+function toggleProfileDropdown() {
+  const dropdown = document.getElementById('profile-dropdown');
+  const notifDD = document.getElementById('notif-dropdown');
+  const settingsDD = document.getElementById('settings-dropdown');
+  notifDD.classList.add('hidden');
+  settingsDD.classList.add('hidden');
+  dropdown.classList.toggle('hidden');
+}
+
+// ── NOTIFICATIONS ──────────────────────────────────────────────
+function toggleNotifications() {
+  const dd = document.getElementById('notif-dropdown');
+  const settingsDD = document.getElementById('settings-dropdown');
+  const profileDD = document.getElementById('profile-dropdown');
+  settingsDD.classList.add('hidden');
+  profileDD.classList.add('hidden');
+  dd.classList.toggle('hidden');
+  // hide red badge when opened
+  if (!dd.classList.contains('hidden')) {
+    document.getElementById('notif-badge').style.display = 'none';
+  }
+}
+function clearNotifications() {
+  const list = document.getElementById('notif-list');
+  list.innerHTML = '<div class="px-4 py-8 text-center"><span class="material-symbols-outlined text-outline-variant" style="font-size:40px">notifications_off</span><p class="text-[12px] text-on-surface-variant mt-2">No new notifications</p></div>';
+  showToast('All notifications cleared', 'info');
+}
+
+// ── SETTINGS ───────────────────────────────────────────────────
+let currentFontSize = 'medium';
+function toggleSettings() {
+  const dd = document.getElementById('settings-dropdown');
+  const notifDD = document.getElementById('notif-dropdown');
+  const profileDD = document.getElementById('profile-dropdown');
+  notifDD.classList.add('hidden');
+  profileDD.classList.add('hidden');
+  dd.classList.toggle('hidden');
+}
+function toggleDarkMode(checkbox) {
+  if (checkbox.checked) {
+    document.documentElement.classList.add('dark');
+    document.body.style.backgroundColor = '#1a1f2e';
+    document.body.style.color = '#e2e8f0';
+    showToast('Dark mode enabled', 'info');
+  } else {
+    document.documentElement.classList.remove('dark');
+    document.body.style.backgroundColor = '';
+    document.body.style.color = '';
+    showToast('Light mode enabled', 'info');
+  }
+}
+function setFontSize(size) {
+  currentFontSize = size;
+  const sizes = { small: '13px', medium: '15px', large: '17px' };
+  document.body.style.fontSize = sizes[size];
+  // update button states
+  document.querySelectorAll('[onclick^="setFontSize"]').forEach(btn => {
+    btn.className = btn.className.replace(/bg-secondary text-white border-secondary/, '');
+    btn.classList.add('border-outline-variant');
+    btn.classList.remove('bg-secondary','text-white');
+  });
+  const active = document.querySelector(`[onclick="setFontSize('${size}')"]`);
+  if (active) {
+    active.classList.add('bg-secondary','text-white');
+    active.classList.remove('border-outline-variant');
+  }
+  showToast(`Font size: ${size.charAt(0).toUpperCase()+size.slice(1)}`, 'success');
+}
+function changeTableRows(val) {
+  showToast(`Table will show ${val} rows`, 'success');
+  // If there's an active data table rendered, re-render
+  if (typeof renderDataTable === 'function') renderDataTable(parseInt(val));
+}
+function resetSettings() {
+  document.getElementById('dark-mode-toggle').checked = false;
+  document.documentElement.classList.remove('dark');
+  document.body.style.backgroundColor = '';
+  document.body.style.color = '';
+  document.body.style.fontSize = '';
+  setFontSize('medium');
+  document.querySelector('select[onchange]').value = '10';
+  document.getElementById('notif-badge').style.display = '';
+  showToast('Settings reset to default', 'success');
+}
+
+// ── CLOSE ALL DROPDOWNS ON OUTSIDE CLICK ─────────────────────
+document.addEventListener('click', function(e) {
+  ['profile-wrapper','notif-wrapper','settings-wrapper'].forEach(id => {
+    const wrapper = document.getElementById(id);
+    const dropMap = {'profile-wrapper':'profile-dropdown','notif-wrapper':'notif-dropdown','settings-wrapper':'settings-dropdown'};
+    const dd = document.getElementById(dropMap[id]);
+    if (wrapper && dd && !wrapper.contains(e.target)) {
+      dd.classList.add('hidden');
+    }
+  });
+});
+ 
+// ══════════════════════════════════════════════════════════════
+// STATISTICS HELPERS
+// ══════════════════════════════════════════════════════════════
+function getValues() { return allData.filter(r=>r.value!==null).map(r=>r.value); }
+function mean(arr) { return arr.length?arr.reduce((a,b)=>a+b,0)/arr.length:0; }
+function variance(arr) { const m=mean(arr); return arr.map(v=>(v-m)**2).reduce((a,b)=>a+b,0)/(arr.length-1||1); }
+function std(arr) { return Math.sqrt(variance(arr)); }
+function median(arr) { const s=[...arr].sort((a,b)=>a-b); const m=Math.floor(s.length/2); return s.length%2?s[m]:(s[m-1]+s[m])/2; }
+function min(arr) { return Math.min(...arr); }
+function max(arr) { return Math.max(...arr); }
+function q1(arr) { const s=[...arr].sort((a,b)=>a-b); return s[Math.floor(s.length/4)]; }
+function q3(arr) { const s=[...arr].sort((a,b)=>a-b); return s[Math.floor(3*s.length/4)]; }
+// Normal CDF (approx)
+function normCDF(z) {
+  const a1=0.254829592,a2=-0.284496736,a3=1.421413741,a4=-1.453152027,a5=1.061405429,p=0.3275911;
+  const sign = z<0?-1:1; let zz=Math.abs(z)/Math.sqrt(2);
+  const t=1/(1+p*zz);
+  const y=1-(((((a5*t+a4)*t)+a3)*t+a2)*t+a1)*t*Math.exp(-zz*zz);
+  return 0.5*(1+sign*y);
+}
+// t-distribution CDF approx (for df > 1)
+function tCDF(t,df) {
+  // Use normal approx for large df
+  if (df>30) return normCDF(t);
+  // Simple approximation
+  const x = df/(df+t*t);
+  let ib=0;
+  for (let i=0;i<1000;i++) { const xi=i/1000; ib+=Math.pow(xi,df/2-1)*Math.pow(1-xi,-0.5)/1000; }
+  return 0.5; // fallback - use normal approx for simplicity
+}
+function tCritical(alpha, df, twoTailed=true) {
+  // Approximate t critical values
+  const a = twoTailed ? alpha/2 : alpha;
+  if (df>=120) return normInv(1-a);
+  const table = {0.025:[12.706,4.303,3.182,2.776,2.571,2.447,2.365,2.306,2.262,2.228,2.201,2.179,2.160,2.145,2.131,2.120,2.110,2.101,2.093,2.086,2.080,2.074,2.069,2.064,2.060,2.056,2.052,2.048,2.045,2.042],
+    0.005:[63.657,9.925,5.841,4.604,4.032,3.707,3.499,3.355,3.250,3.169,3.106,3.055,3.012,2.977,2.947,2.921,2.898,2.878,2.861,2.845,2.831,2.819,2.807,2.797,2.787,2.779,2.771,2.763,2.756,2.750],
+    0.05:[6.314,2.920,2.353,2.132,2.015,1.943,1.895,1.860,1.833,1.812,1.796,1.782,1.771,1.761,1.753,1.746,1.740,1.734,1.729,1.725,1.721,1.717,1.714,1.711,1.708,1.706,1.703,1.701,1.699,1.697]};
+  const row = table[a]||table[0.025];
+  return row[Math.min(df-1, row.length-1)];
+}
+function normInv(p) {
+  // Rational approximation
+  const a = [-3.969683028665376e+01,2.209460984245205e+02,-2.759285104469687e+02,1.383577518672690e+02,-3.066479806614716e+01,2.506628277459239e+00];
+  const b = [-5.447609879822406e+01,1.615858368580409e+02,-1.556989798598866e+02,6.680131188771972e+01,-1.328068155288572e+01];
+  const c = [-7.784894002430293e-03,-3.223964580411365e-01,-2.400758277161838e+00,-2.549732539343734e+00,4.374664141464968e+00,2.938163982698783e+00];
+  const d = [7.784695709041462e-03,3.224671290700398e-01,2.445134137142996e+00,3.754408661907416e+00];
+  const pLow=0.02425, pHigh=1-pLow;
+  let q,r;
+  if (p<pLow) { q=Math.sqrt(-2*Math.log(p)); return (((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/(((d[0]*q+d[1])*q+d[2])*q+d[3]+1); }
+  if (p<=pHigh) { q=p-0.5; r=q*q; return (((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*q/(((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1); }
+  q=Math.sqrt(-2*Math.log(1-p)); return -(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/(((d[0]*q+d[1])*q+d[2])*q+d[3]+1);
+}
+ 
+// ══════════════════════════════════════════════════════════════
+// PAGE: DASHBOARD
+// ══════════════════════════════════════════════════════════════
+function renderDashboard() {
+  const vals = getValues();
+  const missing = allData.filter(r=>r.value===null).length;
+  const quality = ((allData.length-missing)/Math.max(1,allData.length)*100).toFixed(0);
+  document.getElementById('dash-records').textContent = allData.length;
+  document.getElementById('dash-missing').textContent = missing;
+  document.getElementById('da
